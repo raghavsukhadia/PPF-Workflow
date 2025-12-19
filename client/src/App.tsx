@@ -9,15 +9,19 @@ import Dashboard from "@/pages/Dashboard";
 import CreateJob from "@/pages/CreateJob";
 import JobCard from "@/pages/JobCard";
 import Kanban from "@/pages/Kanban";
+import Login from "@/pages/Login";
+import Settings from "@/pages/Settings";
 
 function Router() {
   return (
     <Shell>
       <Switch>
+        <Route path="/login" component={Login} />
         <Route path="/" component={Dashboard} />
         <Route path="/create-job" component={CreateJob} />
         <Route path="/jobs/:id" component={JobCard} />
         <Route path="/kanban" component={Kanban} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

@@ -10,6 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -21,21 +24,47 @@ import {
   ChevronRight,
   Camera,
   MessageSquare,
-  StickyNote
+  StickyNote,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function JobCard() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
-  const { jobs, updateJobStage, moveJobStage } = useStore();
+  const { jobs, updateJobStage, moveJobStage, reportIssue, resolveIssue, teamMembers } = useStore();
+  const { toast } = useToast();
   
   const job = jobs.find(j => j.id === id);
+  const [issueDescription, setIssueDescription] = useState("");
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
 
   if (!job) {
     return <div className="p-8 text-center text-muted-foreground">Job not found</div>;
   }
+
+  const handleReportIssue = () => {
+    if (issueDescription.trim()) {
+      reportIssue(job.id, job.currentStage, issueDescription);
+      setIsIssueModalOpen(false);
+      setIssueDescription("");
+      toast({
+        variant: "destructive",
+        title: "Issue Reported",
+        description: "The job has been flagged and put on hold."
+      });
+    }
+  };
+
+  const handleResolveIssue = () => {
+    resolveIssue(job.id);
+    toast({
+      title: "Issue Resolved",
+      description: "Job is back in progress."
+    });
+  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -48,7 +77,9 @@ export default function JobCard() {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-display font-bold">{job.vehicle.brand} {job.vehicle.model}</h2>
-              <Badge variant="outline" className="text-xs uppercase tracking-wider">{job.status}</Badge>
+              <Badge variant={job.activeIssue ? "destructive" : "outline"} className={cn("text-xs uppercase tracking-wider", job.activeIssue && "animate-pulse")}>
+                {job.activeIssue ? "ISSUE REPORTED" : job.status}
+              </Badge>
             </div>
             <p className="text-muted-foreground">{job.jobNo} • {job.package}</p>
           </div>
@@ -65,6 +96,20 @@ export default function JobCard() {
            </Button>
         </div>
       </div>
+
+      {job.activeIssue && (
+        <div className="bg-destructive/10 border border-destructive/50 rounded-xl p-4 flex items-start gap-4 animate-in slide-in-from-top-4">
+          <AlertCircle className="w-6 h-6 text-destructive shrink-0 mt-1" />
+          <div className="flex-1">
+            <h4 className="font-bold text-destructive">Active Issue Reported</h4>
+            <p className="text-sm text-foreground/80 mt-1">{job.activeIssue.description}</p>
+            <p className="text-xs text-muted-foreground mt-2">Reported by {job.activeIssue.reportedBy} at {format(new Date(job.activeIssue.reportedAt), 'h:mm a')}</p>
+          </div>
+          <Button variant="default" className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleResolveIssue}>
+            Resolve Issue
+          </Button>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-8 h-full">
         {/* Left Column: Progress Timeline */}
@@ -89,7 +134,7 @@ export default function JobCard() {
                               "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors",
                               stage.status === 'completed' ? "border-green-500 text-green-500" :
                               stage.status === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
-                              stage.status === 'issue' ? "border-red-500 text-red-500" :
+                              stage.status === 'issue' ? "border-red-500 text-red-500 bg-red-500/10" :
                               "border-muted-foreground text-muted-foreground"
                            )}>
                               {stage.status === 'completed' ? <CheckCircle2 className="w-5 h-5" /> : 
@@ -97,7 +142,10 @@ export default function JobCard() {
                                <span className="text-xs font-bold">{stage.id}</span>}
                            </div>
                            <div className="pt-1 flex-1">
-                              <h4 className={cn("font-medium text-sm leading-none mb-1", stage.id === job.currentStage && "text-primary")}>
+                              <h4 className={cn("font-medium text-sm leading-none mb-1", 
+                                stage.id === job.currentStage && "text-primary",
+                                stage.status === 'issue' && "text-destructive"
+                              )}>
                                  {stage.name}
                               </h4>
                               {stage.status === 'completed' && stage.completedAt && (
@@ -105,6 +153,9 @@ export default function JobCard() {
                               )}
                               {stage.status === 'in-progress' && (
                                  <Badge variant="secondary" className="mt-1 text-[10px] bg-primary/10 text-primary border-primary/20">In Progress</Badge>
+                              )}
+                              {stage.status === 'issue' && (
+                                 <Badge variant="destructive" className="mt-1 text-[10px]">Issue Reported</Badge>
                               )}
                            </div>
                         </div>
@@ -120,11 +171,40 @@ export default function JobCard() {
            <StageDetailView 
               jobId={job.id} 
               stage={job.stages[job.currentStage - 1]} 
+              teamMembers={teamMembers}
               onComplete={() => moveJobStage(job.id, 'next')}
               onUpdate={(data) => updateJobStage(job.id, job.currentStage, data)}
+              onReportIssue={() => setIsIssueModalOpen(true)}
+              isBlocked={!!job.activeIssue}
            />
         </div>
       </div>
+
+      <Dialog open={isIssueModalOpen} onOpenChange={setIsIssueModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Report an Issue</DialogTitle>
+            <DialogDescription>
+              Describe the issue preventing this stage from being completed. This will flag the job and notify the team.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="issue">Issue Description</Label>
+              <Textarea 
+                id="issue" 
+                placeholder="e.g. Paint defect found on left door panel..." 
+                value={issueDescription}
+                onChange={(e) => setIssueDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setIsIssueModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReportIssue}>Report Issue</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -133,33 +213,59 @@ function StageDetailView({
   jobId, 
   stage, 
   onComplete, 
-  onUpdate 
+  onUpdate,
+  teamMembers,
+  onReportIssue,
+  isBlocked
 }: { 
   jobId: string; 
   stage: JobStage; 
   onComplete: () => void;
   onUpdate: (data: Partial<JobStage>) => void;
+  teamMembers: any[];
+  onReportIssue: () => void;
+  isBlocked: boolean;
 }) {
   const isAllChecked = stage.checklist.every(item => item.checked);
 
   const toggleCheck = (index: number) => {
+    if (isBlocked) return;
     const newChecklist = [...stage.checklist];
     newChecklist[index].checked = !newChecklist[index].checked;
     onUpdate({ checklist: newChecklist });
   };
 
   return (
-    <Card className="glass-card border-primary/20 shadow-lg shadow-primary/5 min-h-[500px] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <Card className={cn(
+      "glass-card border-primary/20 shadow-lg shadow-primary/5 min-h-[500px] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500",
+      isBlocked && "border-destructive/30 shadow-destructive/5"
+    )}>
       <CardHeader className="border-b border-border/50 bg-white/5 pb-4">
          <div className="flex items-center justify-between">
             <div>
-               <p className="text-sm font-medium text-primary mb-1">CURRENT STAGE</p>
+               <p className={cn("text-sm font-medium mb-1", isBlocked ? "text-destructive" : "text-primary")}>
+                 {isBlocked ? "STAGE BLOCKED" : "CURRENT STAGE"}
+               </p>
                <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
             </div>
             <div className="flex flex-col items-end gap-1">
                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="w-4 h-4" />
-                  <span>Assigned to: <span className="text-foreground font-medium">Unassigned</span></span>
+                  <span>Assigned to:</span>
+                  <Select 
+                    value={stage.assignedTo} 
+                    onValueChange={(val) => onUpdate({ assignedTo: val })}
+                    disabled={isBlocked}
+                  >
+                    <SelectTrigger className="w-[180px] h-8 text-xs border-none bg-transparent focus:ring-0 px-0 justify-end font-medium text-foreground">
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                </div>
                {stage.startedAt && (
                   <p className="text-xs text-muted-foreground">Started: {format(new Date(stage.startedAt), 'h:mm a')}</p>
@@ -168,7 +274,10 @@ function StageDetailView({
          </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-0">
+      <CardContent className="flex-1 p-0 relative">
+         {isBlocked && (
+           <div className="absolute inset-0 bg-background/50 z-10 cursor-not-allowed" />
+         )}
          <Tabs defaultValue="checklist" className="w-full h-full flex flex-col">
             <div className="px-6 py-2 border-b border-border/50">
                <TabsList className="grid w-full max-w-[400px] grid-cols-2">
@@ -224,16 +333,21 @@ function StageDetailView({
       </CardContent>
 
       <div className="p-6 border-t border-border/50 bg-white/5 flex items-center justify-between gap-4">
-         <Button variant="outline" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20">
+         <Button 
+           variant="outline" 
+           className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20"
+           onClick={onReportIssue}
+           disabled={isBlocked}
+         >
             <AlertTriangle className="w-4 h-4 mr-2" />
             Report Issue
          </Button>
          <Button 
             onClick={onComplete}
-            disabled={!isAllChecked}
+            disabled={!isAllChecked || isBlocked}
             className={cn(
                "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
-               isAllChecked ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+               (isAllChecked && !isBlocked) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
             )}
          >
             {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}

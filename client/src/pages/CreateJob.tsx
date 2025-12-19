@@ -6,9 +6,7 @@ import { useStore, STAGE_TEMPLATES } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Save, Car, User, Calendar as CalendarIcon, Camera, Plus } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -30,7 +28,7 @@ const formSchema = z.object({
 
 export default function CreateJob() {
   const [, setLocation] = useLocation();
-  const { addJob } = useStore();
+  const { addJob, servicePackages } = useStore();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -170,11 +168,9 @@ export default function CreateJob() {
                              </SelectTrigger>
                            </FormControl>
                            <SelectContent>
-                             <SelectItem value="Full Body PPF">Full Body PPF</SelectItem>
-                             <SelectItem value="Full Body PPF + Ceramic">Full Body PPF + Ceramic</SelectItem>
-                             <SelectItem value="Front Kit PPF">Front Kit PPF</SelectItem>
-                             <SelectItem value="Ceramic Coating">Ceramic Coating</SelectItem>
-                             <SelectItem value="Maintenance Wash">Maintenance Wash</SelectItem>
+                             {servicePackages.map((pkg) => (
+                               <SelectItem key={pkg} value={pkg}>{pkg}</SelectItem>
+                             ))}
                            </SelectContent>
                          </Select>
                          <FormMessage />

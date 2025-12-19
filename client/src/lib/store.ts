@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Types based on the prompt
+// Types
 export type Role = 'Admin' | 'Advisor' | 'Technician' | 'QC';
 
 export type User = {
@@ -18,6 +18,16 @@ export type Vehicle = {
   color: string;
   regNo: string;
   vin: string;
+};
+
+export type JobIssue = {
+  id: string;
+  stageId: number;
+  description: string;
+  reportedBy: string;
+  reportedAt: string;
+  resolved: boolean;
+  resolvedAt?: string;
 };
 
 export type JobStage = {
@@ -45,9 +55,9 @@ export type Job = {
   stages: JobStage[];
   createdAt: string;
   priority: 'normal' | 'high';
+  activeIssue?: JobIssue; // Track the current active issue if any
 };
 
-// Initial Data
 export const STAGE_TEMPLATES = [
   { id: 1, name: 'Vehicle Inward', checklist: ['Customer details verified', 'Walkaround photos (6 angles)', 'Accessories noted', 'Job package confirmed'] },
   { id: 2, name: 'Inspection', checklist: ['Paint condition marked', 'Existing scratches/dents marked', 'Panel-wise note', 'Customer approval'] },
@@ -60,6 +70,21 @@ export const STAGE_TEMPLATES = [
   { id: 9, name: 'Cleaning & Finishing', checklist: ['Final wipe down', 'Glass cleaned', 'Interior quick clean'] },
   { id: 10, name: 'Final Inspection', checklist: ['Panel-by-panel QC', 'Edges + corners check', 'Curing instructions ready'] },
   { id: 11, name: 'Delivered', checklist: ['Customer walkthrough', 'Delivery photos', 'Payment closed', 'Signature captured'] },
+];
+
+const DEFAULT_PACKAGES = [
+  "Full Body PPF",
+  "Full Body PPF + Ceramic",
+  "Front Kit PPF",
+  "Ceramic Coating",
+  "Maintenance Wash"
+];
+
+const DEFAULT_USERS: User[] = [
+  { id: 'u1', name: 'Admin User', role: 'Admin' },
+  { id: 'u2', name: 'Tech Sameer', role: 'Technician' },
+  { id: 'u3', name: 'Advisor Priya', role: 'Advisor' },
+  { id: 'u4', name: 'QC Vikram', role: 'QC' },
 ];
 
 const MOCK_JOBS: Job[] = [
@@ -104,34 +129,44 @@ const MOCK_JOBS: Job[] = [
   }
 ];
 
-export const USERS: User[] = [
-  { id: 'u1', name: 'Admin User', role: 'Admin' },
-  { id: 'u2', name: 'Tech Sameer', role: 'Technician' },
-  { id: 'u3', name: 'Advisor Priya', role: 'Advisor' },
-  { id: 'u4', name: 'QC Vikram', role: 'QC' },
-];
-
 // Store
 interface AppState {
-  currentUser: User;
+  isAuthenticated: boolean;
+  currentUser: User | null;
   jobs: Job[];
-  activeJobId: string | null;
-  setCurrentUser: (user: User) => void;
+  servicePackages: string[];
+  teamMembers: User[];
+  
+  login: (user: User) => void;
+  logout: () => void;
+  
   addJob: (job: Job) => void;
   updateJobStage: (jobId: string, stageId: number, data: Partial<JobStage>) => void;
   moveJobStage: (jobId: string, direction: 'next' | 'prev') => void;
-  setActiveJob: (id: string | null) => void;
+  
+  reportIssue: (jobId: string, stageId: number, description: string) => void;
+  resolveIssue: (jobId: string) => void;
+  
+  addServicePackage: (pkg: string) => void;
+  removeServicePackage: (pkg: string) => void;
+  
+  addTeamMember: (member: User) => void;
+  removeTeamMember: (id: string) => void;
 }
 
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
-      currentUser: USERS[0],
+      isAuthenticated: false,
+      currentUser: null,
       jobs: MOCK_JOBS,
-      activeJobId: null,
-      setCurrentUser: (user) => set({ currentUser: user }),
+      servicePackages: DEFAULT_PACKAGES,
+      teamMembers: DEFAULT_USERS,
+
+      login: (user) => set({ isAuthenticated: true, currentUser: user }),
+      logout: () => set({ isAuthenticated: false, currentUser: null }),
+
       addJob: (job) => set((state) => ({ jobs: [job, ...state.jobs] })),
-      setActiveJob: (id) => set({ activeJobId: id }),
       
       updateJobStage: (jobId, stageId, data) => set((state) => ({
         jobs: state.jobs.map(job => {
@@ -148,26 +183,84 @@ export const useStore = create<AppState>()(
           if (job.id !== jobId) return job;
           
           let newStageNo = job.currentStage;
+          const updatedStages = [...job.stages];
+
           if (direction === 'next' && job.currentStage < 11) {
              // Mark current as completed if moving next
-             job.stages[job.currentStage - 1].status = 'completed';
-             job.stages[job.currentStage - 1].completedAt = new Date().toISOString();
+             updatedStages[job.currentStage - 1] = {
+               ...updatedStages[job.currentStage - 1],
+               status: 'completed',
+               completedAt: new Date().toISOString()
+             };
+             
              newStageNo++;
+             
              // Mark next as in-progress
-             job.stages[newStageNo - 1].status = 'in-progress';
-             job.stages[newStageNo - 1].startedAt = new Date().toISOString();
+             updatedStages[newStageNo - 1] = {
+               ...updatedStages[newStageNo - 1],
+               status: 'in-progress',
+               startedAt: new Date().toISOString()
+             };
           } else if (direction === 'prev' && job.currentStage > 1) {
-             job.stages[job.currentStage - 1].status = 'pending';
+             updatedStages[job.currentStage - 1] = {
+               ...updatedStages[job.currentStage - 1],
+               status: 'pending'
+             };
              newStageNo--;
-             job.stages[newStageNo - 1].status = 'in-progress';
+             updatedStages[newStageNo - 1] = {
+               ...updatedStages[newStageNo - 1],
+               status: 'in-progress'
+             };
           }
           
-          return { ...job, currentStage: newStageNo };
+          return { ...job, currentStage: newStageNo, stages: updatedStages };
         })
-      }))
+      })),
+
+      reportIssue: (jobId, stageId, description) => set((state) => ({
+        jobs: state.jobs.map(job => {
+          if (job.id !== jobId) return job;
+          
+          const issue: JobIssue = {
+            id: `issue-${Date.now()}`,
+            stageId,
+            description,
+            reportedBy: state.currentUser?.name || 'Unknown',
+            reportedAt: new Date().toISOString(),
+            resolved: false
+          };
+
+          const newStages = job.stages.map(s => 
+            s.id === stageId ? { ...s, status: 'issue' as const } : s
+          );
+
+          return { ...job, activeIssue: issue, stages: newStages, status: 'hold' };
+        })
+      })),
+
+      resolveIssue: (jobId) => set((state) => ({
+        jobs: state.jobs.map(job => {
+          if (job.id !== jobId) return job;
+          if (!job.activeIssue) return job;
+
+          const resolvedIssue = { ...job.activeIssue, resolved: true, resolvedAt: new Date().toISOString() };
+          
+          const newStages = job.stages.map(s => 
+            s.id === job.activeIssue?.stageId ? { ...s, status: 'in-progress' as const } : s
+          );
+
+          return { ...job, activeIssue: undefined, stages: newStages, status: 'active' };
+        })
+      })),
+
+      addServicePackage: (pkg) => set((state) => ({ servicePackages: [...state.servicePackages, pkg] })),
+      removeServicePackage: (pkg) => set((state) => ({ servicePackages: state.servicePackages.filter(p => p !== pkg) })),
+
+      addTeamMember: (member) => set((state) => ({ teamMembers: [...state.teamMembers, member] })),
+      removeTeamMember: (id) => set((state) => ({ teamMembers: state.teamMembers.filter(m => m.id !== id) })),
     }),
     {
-      name: 'ppf-master-storage',
+      name: 'ppf-master-storage-v2', // Changed name to reset storage for new schema
     }
   )
 );

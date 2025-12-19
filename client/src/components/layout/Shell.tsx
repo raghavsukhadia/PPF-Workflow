@@ -7,19 +7,31 @@ import {
   Settings, 
   LogOut, 
   Menu,
-  X,
   Car
 } from "lucide-react";
-import { useState } from "react";
-import { useStore, USERS } from "@/lib/store";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useEffect } from "react";
+import { useStore } from "@/lib/store";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
-  const { currentUser, setCurrentUser } = useStore();
+  const [location, setLocation] = useLocation();
+  const { currentUser, logout, isAuthenticated } = useStore();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Auth Protection
+  useEffect(() => {
+    if (!isAuthenticated && location !== "/login") {
+      setLocation("/login");
+    }
+  }, [isAuthenticated, location, setLocation]);
+
+  if (!isAuthenticated && location === "/login") {
+    return <>{children}</>;
+  }
+
+  if (!isAuthenticated) return null; // Prevent flash of content
 
   const NavItem = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => (
     <Link href={href}>
@@ -66,19 +78,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border border-border">
             <AvatarFallback className="bg-primary/20 text-primary font-bold">
-              {currentUser.name.charAt(0)}
+              {currentUser?.name?.charAt(0) || 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate text-foreground">{currentUser.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{currentUser.role}</p>
+            <p className="text-sm font-medium truncate text-foreground">{currentUser?.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{currentUser?.role}</p>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-             onClick={() => {
-                // Cycle users for demo purposes
-                const nextIndex = (USERS.findIndex(u => u.id === currentUser.id) + 1) % USERS.length;
-                setCurrentUser(USERS[nextIndex]);
-             }}
+             onClick={() => logout()}
           >
             <LogOut className="w-4 h-4" />
           </Button>

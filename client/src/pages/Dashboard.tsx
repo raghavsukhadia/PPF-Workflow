@@ -14,20 +14,22 @@ import {
   Plus
 } from "lucide-react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const { jobs, currentUser } = useStore();
 
-  const activeJobs = jobs.filter(j => j.status === 'active');
+  const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'hold');
   const deliveredJobs = jobs.filter(j => j.status === 'delivered');
   const pendingCount = activeJobs.length;
+  const issuesCount = jobs.filter(j => j.activeIssue).length;
   
   // Quick stats
   const stats = [
     { label: 'Active Jobs', value: pendingCount, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10' },
     { label: 'Delivered (Mtd)', value: deliveredJobs.length + 12, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
     { label: 'Pending Delivery', value: activeJobs.filter(j => j.currentStage === 11).length, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { label: 'Issues', value: 1, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
+    { label: 'Issues', value: issuesCount, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
   ];
 
   return (
@@ -35,7 +37,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-display font-bold text-foreground">Dashboard</h2>
-          <p className="text-muted-foreground">Welcome back, {currentUser.name}</p>
+          <p className="text-muted-foreground">Welcome back, {currentUser?.name}</p>
         </div>
         <Link href="/create-job">
           <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
@@ -132,11 +134,18 @@ export default function Dashboard() {
 function JobListItem({ job }: { job: Job }) {
   const currentStageName = job.stages.find(s => s.id === job.currentStage)?.name || 'Unknown';
   const progress = (job.currentStage / 11) * 100;
+  const hasIssue = !!job.activeIssue;
 
   return (
     <Link href={`/jobs/${job.id}`}>
-      <div className="group relative overflow-hidden bg-card hover:bg-card/80 border border-border/50 hover:border-primary/50 transition-all duration-300 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md">
-        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className={cn(
+        "group relative overflow-hidden bg-card hover:bg-card/80 border transition-all duration-300 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md",
+        hasIssue ? "border-red-500/50 shadow-red-500/5" : "border-border/50 hover:border-primary/50"
+      )}>
+        <div className={cn(
+          "absolute top-0 left-0 w-1 h-full transition-opacity",
+          hasIssue ? "bg-red-500 opacity-100" : "bg-gradient-to-b from-primary to-blue-600 opacity-0 group-hover:opacity-100"
+        )} />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-start gap-4">
@@ -147,6 +156,7 @@ function JobListItem({ job }: { job: Job }) {
                 <div className="flex items-center gap-2">
                    <h4 className="font-display font-bold text-lg">{job.vehicle.brand} {job.vehicle.model}</h4>
                    {job.priority === 'high' && <Badge variant="destructive" className="text-[10px] h-5">URGENT</Badge>}
+                   {hasIssue && <Badge variant="destructive" className="text-[10px] h-5 bg-red-500/20 text-red-500 border-red-500/50 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> ISSUE REPORTED</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground">{job.vehicle.year} • {job.vehicle.color} • {job.vehicle.regNo}</p>
              </div>
@@ -166,7 +176,11 @@ function JobListItem({ job }: { job: Job }) {
             <span>Progress (Stage {job.currentStage}/11)</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <Progress value={progress} className="h-2 bg-secondary" indicatorClassName="bg-gradient-to-r from-primary to-blue-400" />
+          <Progress 
+            value={progress} 
+            className="h-2 bg-secondary" 
+            indicatorClassName={hasIssue ? "bg-red-500" : "bg-gradient-to-r from-primary to-blue-400"} 
+          />
         </div>
       </div>
     </Link>

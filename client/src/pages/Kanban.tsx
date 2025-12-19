@@ -1,9 +1,11 @@
 import { useStore, Job } from "@/lib/store";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Car, Clock, MoreHorizontal } from "lucide-react";
+import { Car, Clock, MoreHorizontal, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
+import { cn } from "@/lib/utils";
 
 // Group stages into simplified columns for the Kanban
 const COLUMNS = [
@@ -41,11 +43,17 @@ export default function Kanban() {
                  <div className="p-3 space-y-3 flex-1 overflow-y-auto min-h-[200px]">
                    {colJobs.map(job => (
                      <Link key={job.id} href={`/jobs/${job.id}`}>
-                       <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group bg-card">
+                       <Card className={cn(
+                         "cursor-pointer transition-all group bg-card",
+                         job.activeIssue 
+                           ? "border-destructive/50 shadow-sm shadow-destructive/10" 
+                           : "hover:border-primary/50 hover:shadow-md"
+                       )}>
                          <CardContent className="p-4 space-y-3">
                            <div className="flex justify-between items-start">
                              <div className="font-display font-bold text-lg leading-tight">{job.vehicle.brand}<br/><span className="text-base font-normal text-muted-foreground">{job.vehicle.model}</span></div>
-                             {job.priority === 'high' && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="High Priority" />}
+                             {job.priority === 'high' && !job.activeIssue && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="High Priority" />}
+                             {job.activeIssue && <AlertCircle className="w-4 h-4 text-destructive animate-pulse" />}
                            </div>
                            
                            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
@@ -54,8 +62,11 @@ export default function Kanban() {
                            </div>
 
                            <div className="flex justify-between items-end pt-2 border-t border-border/50">
-                             <Badge variant="outline" className="text-[10px] h-5 bg-primary/5 text-primary border-primary/20">
-                               Stage {job.currentStage}
+                             <Badge 
+                               variant="outline" 
+                               className={cn("text-[10px] h-5", job.activeIssue ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-primary/5 text-primary border-primary/20")}
+                             >
+                               {job.activeIssue ? "ISSUE" : `Stage ${job.currentStage}`}
                              </Badge>
                              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                                <Clock className="w-3 h-3" />
