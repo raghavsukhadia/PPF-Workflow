@@ -2,14 +2,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
-import { useStore, STAGE_TEMPLATES } from "@/lib/store";
+import { STAGE_TEMPLATES } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Car, User, Calendar as CalendarIcon, Camera, Plus, HardHat } from "lucide-react";
+import { ArrowLeft, Save, Car, User, Calendar as CalendarIcon, Camera, Plus } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateJob, useServicePackages, useUsers } from "@/lib/api";
 
 const formSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
@@ -29,7 +30,9 @@ const formSchema = z.object({
 
 export default function CreateJob() {
   const [, setLocation] = useLocation();
-  const { addJob, servicePackages, teamMembers } = useStore();
+  const { data: servicePackages = [] } = useServicePackages();
+  const { data: teamMembers = [] } = useUsers();
+  const createJobMutation = useCreateJob();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -51,54 +54,55 @@ export default function CreateJob() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     const promisedDateTime = new Date(`${values.promisedDate}T${values.promisedTime}`);
     
-    const newJob = {
-      id: `job-${Date.now()}`,
-      jobNo: `JOB-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+    const jobData = {
       customerName: values.customerName,
       customerPhone: values.customerPhone,
-      vehicle: {
-        brand: values.brand,
-        model: values.model,
-        year: values.year,
-        color: values.color,
-        regNo: values.regNo,
-        vin: values.vin || '',
-      },
+      vehicleBrand: values.brand,
+      vehicleModel: values.model,
+      vehicleYear: values.year,
+      vehicleColor: values.color,
+      vehicleRegNo: values.regNo,
+      vehicleVin: values.vin || null,
       package: values.package,
-      status: 'active' as const,
+      status: 'active',
       promisedDate: promisedDateTime.toISOString(),
       currentStage: 1,
-      assignedTo: values.assignedTo ? values.assignedTo : undefined, // Top level assignment
-      stages: STAGE_TEMPLATES.map((t, i) => ({
+      assignedTo: values.assignedTo || null,
+      stages: JSON.stringify(STAGE_TEMPLATES.map((t, i) => ({
         ...t,
         status: i === 0 ? 'in-progress' : 'pending',
         checklist: t.checklist.map(c => ({ item: c, checked: false })),
         photos: [],
-        assignedTo: values.assignedTo ? values.assignedTo : undefined, // Also assign to stages
-        startedAt: i === 0 ? new Date().toISOString() : undefined
-      })),
-      createdAt: new Date().toISOString(),
-      priority: 'normal' as const
+        assignedTo: values.assignedTo || null,
+        startedAt: i === 0 ? new Date().toISOString() : null
+      }))),
+      priority: 'normal',
+      activeIssue: null,
     };
 
-    // @ts-ignore
-    addJob(newJob);
-    
-    toast({
-      title: "Job Card Created",
-      description: `Job ${newJob.jobNo} has been successfully created.`,
-    });
-    
-    setLocation(`/jobs/${newJob.id}`);
+    try {
+      const createdJob = await createJobMutation.mutateAsync(jobData);
+      toast({
+        title: "Job Card Created",
+        description: `Job has been successfully created.`,
+      });
+      setLocation(`/jobs/${createdJob.id}`);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to create job card",
+      });
+    }
   }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/")} data-testid="button-back">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
@@ -112,9 +116,7 @@ export default function CreateJob() {
           
           <div className="grid lg:grid-cols-3 gap-8">
             
-            {/* Left Column - Customer & Job Info */}
             <div className="lg:col-span-1 space-y-8">
-               {/* Customer Details */}
                <Card className="glass-card border-border/50">
                  <CardHeader>
                    <div className="flex items-center gap-2">
@@ -130,7 +132,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Full Name</FormLabel>
                          <FormControl>
-                           <Input placeholder="e.g. Rahul Sharma" {...field} />
+                           <Input placeholder="e.g. Rahul Sharma" {...field} data-testid="input-customer-name" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -143,7 +145,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Phone / WhatsApp</FormLabel>
                          <FormControl>
-                           <Input placeholder="+91 98765 43210" {...field} />
+                           <Input placeholder="+91 98765 43210" {...field} data-testid="input-customer-phone" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -152,7 +154,6 @@ export default function CreateJob() {
                  </CardContent>
                </Card>
 
-               {/* Job Details */}
                <Card className="glass-card border-border/50">
                  <CardHeader>
                    <div className="flex items-center gap-2">
@@ -169,13 +170,13 @@ export default function CreateJob() {
                          <FormLabel>Service Package</FormLabel>
                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                            <FormControl>
-                             <SelectTrigger>
+                             <SelectTrigger data-testid="select-package">
                                <SelectValue placeholder="Select package" />
                              </SelectTrigger>
                            </FormControl>
                            <SelectContent>
                              {servicePackages.map((pkg) => (
-                               <SelectItem key={pkg} value={pkg}>{pkg}</SelectItem>
+                               <SelectItem key={pkg.id} value={pkg.name}>{pkg.name}</SelectItem>
                              ))}
                            </SelectContent>
                          </Select>
@@ -194,7 +195,7 @@ export default function CreateJob() {
                          </FormLabel>
                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                            <FormControl>
-                             <SelectTrigger>
+                             <SelectTrigger data-testid="select-installer">
                                <SelectValue placeholder="Select installer" />
                              </SelectTrigger>
                            </FormControl>
@@ -217,7 +218,7 @@ export default function CreateJob() {
                           <FormItem>
                             <FormLabel>Delivery Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <Input type="date" {...field} data-testid="input-promised-date" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -230,7 +231,7 @@ export default function CreateJob() {
                           <FormItem>
                             <FormLabel>Time</FormLabel>
                             <FormControl>
-                              <Input type="time" {...field} />
+                              <Input type="time" {...field} data-testid="input-promised-time" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -241,9 +242,7 @@ export default function CreateJob() {
                </Card>
             </div>
 
-            {/* Right Column - Vehicle & Photos */}
             <div className="lg:col-span-2 space-y-8">
-               {/* Vehicle Details */}
                <Card className="glass-card border-border/50">
                  <CardHeader>
                    <div className="flex items-center gap-2">
@@ -259,7 +258,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Brand</FormLabel>
                          <FormControl>
-                           <Input placeholder="e.g. Porsche" {...field} />
+                           <Input placeholder="e.g. Porsche" {...field} data-testid="input-vehicle-brand" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -272,7 +271,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Model</FormLabel>
                          <FormControl>
-                           <Input placeholder="e.g. 911" {...field} />
+                           <Input placeholder="e.g. 911" {...field} data-testid="input-vehicle-model" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -285,7 +284,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Year</FormLabel>
                          <FormControl>
-                           <Input placeholder="2024" {...field} />
+                           <Input placeholder="2024" {...field} data-testid="input-vehicle-year" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -298,7 +297,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Color</FormLabel>
                          <FormControl>
-                           <Input placeholder="Blue" {...field} />
+                           <Input placeholder="Blue" {...field} data-testid="input-vehicle-color" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -311,7 +310,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>Reg. Number</FormLabel>
                          <FormControl>
-                           <Input placeholder="MH-01-AB-1234" {...field} />
+                           <Input placeholder="MH-01-AB-1234" {...field} data-testid="input-vehicle-regno" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -324,7 +323,7 @@ export default function CreateJob() {
                        <FormItem>
                          <FormLabel>VIN (Optional)</FormLabel>
                          <FormControl>
-                           <Input placeholder="Last 6 digits" {...field} />
+                           <Input placeholder="Last 6 digits" {...field} data-testid="input-vehicle-vin" />
                          </FormControl>
                          <FormMessage />
                        </FormItem>
@@ -333,7 +332,6 @@ export default function CreateJob() {
                  </CardContent>
                </Card>
 
-               {/* Before Photos */}
                <Card className="glass-card border-border/50">
                  <CardHeader>
                    <div className="flex items-center gap-2">
@@ -356,12 +354,18 @@ export default function CreateJob() {
           </div>
 
           <div className="flex justify-end gap-4 sticky bottom-4 z-10 pt-4 border-t border-border/50 bg-background/80 backdrop-blur-md p-4 -mx-4 -mb-4 md:rounded-b-xl">
-            <Button type="button" variant="secondary" onClick={() => setLocation("/")}>
+            <Button type="button" variant="secondary" onClick={() => setLocation("/")} data-testid="button-cancel">
               Cancel
             </Button>
-            <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25">
+            <Button 
+              type="submit" 
+              size="lg" 
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25"
+              disabled={createJobMutation.isPending}
+              data-testid="button-submit"
+            >
               <Save className="w-4 h-4 mr-2" />
-              Create Job Card
+              {createJobMutation.isPending ? "Creating..." : "Create Job Card"}
             </Button>
           </div>
         </form>

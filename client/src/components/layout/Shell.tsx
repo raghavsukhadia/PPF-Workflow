@@ -9,29 +9,26 @@ import {
   Menu,
   Car
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useStore } from "@/lib/store";
+import { useState } from "react";
+import { useAuth, useLogout } from "@/lib/api";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
-  const { currentUser, logout, isAuthenticated } = useStore();
+  const { data: currentUser } = useAuth();
+  const logoutMutation = useLogout();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Auth Protection
-  useEffect(() => {
-    if (!isAuthenticated && location !== "/login") {
-      setLocation("/login");
-    }
-  }, [isAuthenticated, location, setLocation]);
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    setLocation("/login");
+  };
 
-  if (!isAuthenticated && location === "/login") {
+  if (location === "/login") {
     return <>{children}</>;
   }
-
-  if (!isAuthenticated) return null; // Prevent flash of content
 
   const NavItem = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => (
     <Link href={href}>
@@ -85,8 +82,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             <p className="text-sm font-medium truncate text-foreground">{currentUser?.name}</p>
             <p className="text-xs text-muted-foreground truncate">{currentUser?.role}</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-             onClick={() => logout()}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={handleLogout}
+            data-testid="button-logout"
           >
             <LogOut className="w-4 h-4" />
           </Button>
@@ -97,12 +98,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Desktop Sidebar */}
       <aside className="hidden md:block w-64 fixed inset-y-0 z-50">
         <SidebarContent />
       </aside>
 
-      {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar/80 backdrop-blur-md border-b border-sidebar-border z-40 px-4 flex items-center justify-between">
          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
@@ -122,7 +121,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
          </Sheet>
       </div>
 
-      {/* Main Content */}
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen transition-all">
         <div className="h-full p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
           {children}

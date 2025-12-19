@@ -1,4 +1,4 @@
-import { useStore, Job } from "@/lib/store";
+import { useJobs, useUpdateJob, ApiJob } from "@/lib/api";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Car, Clock, MoreHorizontal, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 // Group stages into simplified columns for the Kanban
 const COLUMNS = [
@@ -17,11 +18,47 @@ const COLUMNS = [
 ];
 
 export default function Kanban() {
-  const { jobs } = useStore();
+  const { data: apiJobs, isLoading } = useJobs();
+
+  const jobs = useMemo(() => {
+    if (!apiJobs) return [];
+    
+    return apiJobs.map(apiJob => {
+      const stages = typeof apiJob.stages === 'string' 
+        ? JSON.parse(apiJob.stages) 
+        : apiJob.stages;
+      
+      const activeIssue = typeof apiJob.activeIssue === 'string'
+        ? (apiJob.activeIssue ? JSON.parse(apiJob.activeIssue) : null)
+        : apiJob.activeIssue;
+
+      return {
+        ...apiJob,
+        stages,
+        activeIssue,
+        vehicle: {
+          brand: apiJob.vehicleBrand,
+          model: apiJob.vehicleModel,
+          year: apiJob.vehicleYear,
+          color: apiJob.vehicleColor,
+          regNo: apiJob.vehicleRegNo,
+          vin: apiJob.vehicleVin || '',
+        }
+      };
+    });
+  }, [apiJobs]);
 
   const getJobsForColumn = (stageIds: number[]) => {
     return jobs.filter(job => stageIds.includes(job.currentStage) && job.status !== 'delivered');
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-muted-foreground" data-testid="loading-state">
+        Loading kanban board...
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col">

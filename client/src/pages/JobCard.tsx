@@ -1,5 +1,6 @@
 import { useParams, useLocation } from "wouter";
-import { useStore, Job, JobStage } from "@/lib/store";
+import { JobStage } from "@/lib/store";
+import { useJob, useUpdateJob, useUsers, ApiJob } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -29,44 +30,211 @@ import {
   HardHat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function JobCard() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
-  const { jobs, updateJobStage, moveJobStage, reportIssue, resolveIssue, teamMembers } = useStore();
+  const { data: apiJob, isLoading: jobLoading } = useJob(id);
+  const { data: users, isLoading: usersLoading } = useUsers();
+  const updateJob = useUpdateJob();
   const { toast } = useToast();
   
-  const job = jobs.find(j => j.id === id);
   const [issueDescription, setIssueDescription] = useState("");
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
 
-  if (!job) {
-    return <div className="p-8 text-center text-muted-foreground">Job not found</div>;
+  const job = useMemo(() => {
+    if (!apiJob) return null;
+    
+    const stages = typeof apiJob.stages === 'string' 
+      ? JSON.parse(apiJob.stages) 
+      : apiJob.stages;
+    
+    const activeIssue = typeof apiJob.activeIssue === 'string'
+      ? (apiJob.activeIssue ? JSON.parse(apiJob.activeIssue) : null)
+      : apiJob.activeIssue;
+
+    return {
+      ...apiJob,
+      stages,
+      activeIssue,
+      vehicle: {
+        brand: apiJob.vehicleBrand,
+        model: apiJob.vehicleModel,
+        year: apiJob.vehicleYear,
+        color: apiJob.vehicleColor,
+        regNo: apiJob.vehicleRegNo,
+        vin: apiJob.vehicleVin || '',
+      }
+    };
+  }, [apiJob]);
+
+  if (jobLoading || usersLoading) {
+    return (
+      <div className="p-8 text-center text-muted-foreground" data-testid="loading-state">
+        Loading job details...
+      </div>
+    );
   }
 
-  const assignedUser = teamMembers.find(u => u.id === job.assignedTo);
+  if (!job) {
+    return <div className="p-8 text-center text-muted-foreground" data-testid="job-not-found">Job not found</div>;
+  }
+
+  const assignedUser = users?.find(u => u.id === job.assignedTo);
 
   const handleReportIssue = () => {
     if (issueDescription.trim()) {
-      reportIssue(job.id, job.currentStage, issueDescription);
-      setIsIssueModalOpen(false);
-      setIssueDescription("");
-      toast({
-        variant: "destructive",
-        title: "Issue Reported",
-        description: "The job has been flagged and put on hold."
-      });
+      const currentStage = job.stages[job.currentStage - 1];
+      const issue = {
+        id: `issue-${Date.now()}`,
+        stageId: job.currentStage,
+        description: issueDescription,
+        reportedBy: 'Current User',
+        reportedAt: new Date().toISOString(),
+        resolved: false
+      };
+
+      const updatedStages = job.stages.map((s: any) =>
+        s.id === job.currentStage ? { ...s, status: 'issue' } : s
+      );
+
+      updateJob.mutate(
+        {
+          id: job.id,
+          data: {
+            activeIssue: JSON.stringify(issue),
+            stages: JSON.stringify(updatedStages),
+            status: 'hold'
+          }
+        },
+        {
+          onSuccess: () => {
+            setIsIssueModalOpen(false);
+            setIssueDescription("");
+            toast({
+              variant: "destructive",
+              title: "Issue Reported",
+              description: "The job has been flagged and put on hold."
+            });
+          },
+          onError: (error) => {
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: error.message
+            });
+          }
+        }
+      );
     }
   };
 
   const handleResolveIssue = () => {
-    resolveIssue(job.id);
-    toast({
-      title: "Issue Resolved",
-      description: "Job is back in progress."
-    });
+    const updatedStages = job.stages.map((s: any) =>
+      s.id === job.activeIssue?.stageId ? { ...s, status: 'in-progress' } : s
+    );
+
+    updateJob.mutate(
+      {
+        id: job.id,
+        data: {
+          activeIssue: null,
+          stages: JSON.stringify(updatedStages),
+          status: 'active'
+        }
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Issue Resolved",
+            description: "Job is back in progress."
+          });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message
+          });
+        }
+      }
+    );
+  };
+
+  const moveJobStage = (direction: 'next' | 'prev') => {
+    let newStageNo = job.currentStage;
+    const updatedStages = [...job.stages];
+
+    if (direction === 'next' && job.currentStage < 11) {
+      updatedStages[job.currentStage - 1] = {
+        ...updatedStages[job.currentStage - 1],
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      };
+      
+      newStageNo++;
+      
+      updatedStages[newStageNo - 1] = {
+        ...updatedStages[newStageNo - 1],
+        status: 'in-progress',
+        startedAt: new Date().toISOString()
+      };
+    } else if (direction === 'prev' && job.currentStage > 1) {
+      updatedStages[job.currentStage - 1] = {
+        ...updatedStages[job.currentStage - 1],
+        status: 'pending'
+      };
+      newStageNo--;
+      updatedStages[newStageNo - 1] = {
+        ...updatedStages[newStageNo - 1],
+        status: 'in-progress'
+      };
+    }
+
+    updateJob.mutate(
+      {
+        id: job.id,
+        data: {
+          currentStage: newStageNo,
+          stages: JSON.stringify(updatedStages)
+        }
+      },
+      {
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message
+          });
+        }
+      }
+    );
+  };
+
+  const updateJobStage = (stageId: number, data: Partial<JobStage>) => {
+    const updatedStages = job.stages.map((stage: any) =>
+      stage.id === stageId ? { ...stage, ...data } : stage
+    );
+
+    updateJob.mutate(
+      {
+        id: job.id,
+        data: {
+          stages: JSON.stringify(updatedStages)
+        }
+      },
+      {
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message
+          });
+        }
+      }
+    );
   };
 
   return (
@@ -180,9 +348,9 @@ export default function JobCard() {
            <StageDetailView 
               jobId={job.id} 
               stage={job.stages[job.currentStage - 1]} 
-              teamMembers={teamMembers}
-              onComplete={() => moveJobStage(job.id, 'next')}
-              onUpdate={(data) => updateJobStage(job.id, job.currentStage, data)}
+              teamMembers={users || []}
+              onComplete={() => moveJobStage('next')}
+              onUpdate={(data) => updateJobStage(job.currentStage, data)}
               onReportIssue={() => setIsIssueModalOpen(true)}
               isBlocked={!!job.activeIssue}
            />
