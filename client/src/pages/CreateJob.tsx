@@ -71,12 +71,13 @@ export default function CreateJob() {
       status: 'active' as const,
       promisedDate: promisedDateTime.toISOString(),
       currentStage: 1,
+      assignedTo: values.assignedTo ? values.assignedTo : undefined, // Top level assignment
       stages: STAGE_TEMPLATES.map((t, i) => ({
         ...t,
         status: i === 0 ? 'in-progress' : 'pending',
         checklist: t.checklist.map(c => ({ item: c, checked: false })),
         photos: [],
-        assignedTo: values.assignedTo ? values.assignedTo : undefined,
+        assignedTo: values.assignedTo ? values.assignedTo : undefined, // Also assign to stages
         startedAt: i === 0 ? new Date().toISOString() : undefined
       })),
       createdAt: new Date().toISOString(),

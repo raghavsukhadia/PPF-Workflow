@@ -56,6 +56,7 @@ export type Job = {
   createdAt: string;
   priority: 'normal' | 'high';
   activeIssue?: JobIssue; // Track the current active issue if any
+  assignedTo?: string; // Top-level assignment
 };
 
 export const STAGE_TEMPLATES = [
@@ -100,6 +101,7 @@ const MOCK_JOBS: Job[] = [
     currentStage: 7,
     priority: 'high',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
+    assignedTo: 'u2',
     stages: STAGE_TEMPLATES.map(t => ({
       ...t,
       status: t.id < 7 ? 'completed' : t.id === 7 ? 'in-progress' : 'pending',
@@ -120,6 +122,7 @@ const MOCK_JOBS: Job[] = [
     currentStage: 3,
     priority: 'normal',
     createdAt: new Date(Date.now() - 43200000).toISOString(),
+    assignedTo: 'u3',
     stages: STAGE_TEMPLATES.map(t => ({
       ...t,
       status: t.id < 3 ? 'completed' : t.id === 3 ? 'in-progress' : 'pending',
@@ -260,7 +263,7 @@ export const useStore = create<AppState>()(
       removeTeamMember: (id) => set((state) => ({ teamMembers: state.teamMembers.filter(m => m.id !== id) })),
     }),
     {
-      name: 'ppf-master-storage-v3', // Changed name to reset storage for new schema with Installer role
+      name: 'ppf-master-storage-v4', // Changed name to reset storage for new schema with assignedTo
     }
   )
 );

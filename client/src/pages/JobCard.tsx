@@ -25,7 +25,8 @@ import {
   Camera,
   MessageSquare,
   StickyNote,
-  AlertCircle
+  AlertCircle,
+  HardHat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -44,6 +45,8 @@ export default function JobCard() {
   if (!job) {
     return <div className="p-8 text-center text-muted-foreground">Job not found</div>;
   }
+
+  const assignedUser = teamMembers.find(u => u.id === job.assignedTo);
 
   const handleReportIssue = () => {
     if (issueDescription.trim()) {
@@ -85,15 +88,21 @@ export default function JobCard() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-6">
+           <div className="flex items-center gap-2 px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                 <HardHat className="w-4 h-4" />
+              </div>
+              <div>
+                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Assigned Installer</p>
+                 <p className="text-sm font-medium">{assignedUser ? assignedUser.name : "Unassigned"}</p>
+              </div>
+           </div>
+
            <div className="text-right hidden md:block">
               <p className="text-sm font-medium">Promised Delivery</p>
               <p className="text-xs text-muted-foreground">{format(new Date(job.promisedDate), 'PPP p')}</p>
            </div>
-           <Button variant="outline" className="border-primary/20 hover:bg-primary/10 text-primary">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Notify Customer
-           </Button>
         </div>
       </div>
 
@@ -251,7 +260,7 @@ function StageDetailView({
             <div className="flex flex-col items-end gap-1">
                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="w-4 h-4" />
-                  <span>Assigned to:</span>
+                  <span>Stage Assigned to:</span>
                   <Select 
                     value={stage.assignedTo} 
                     onValueChange={(val) => onUpdate({ assignedTo: val })}
