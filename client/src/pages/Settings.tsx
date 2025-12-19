@@ -31,7 +31,7 @@ export default function Settings() {
 
   // Team State
   const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState("Technician");
+  const [newMemberRole, setNewMemberRole] = useState("Installer");
 
   const handleAddPackage = () => {
     if (newPackage.trim()) {
@@ -142,9 +142,7 @@ export default function Settings() {
                     value={newMemberRole}
                     onChange={(e) => setNewMemberRole(e.target.value)}
                   >
-                    <option value="Technician">Technician</option>
-                    <option value="Advisor">Advisor</option>
-                    <option value="QC">QC</option>
+                    <option value="Installer">Installer</option>
                     <option value="Admin">Admin</option>
                   </select>
                 </div>

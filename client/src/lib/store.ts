@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 // Types
-export type Role = 'Admin' | 'Advisor' | 'Technician' | 'QC';
+export type Role = 'Admin' | 'Installer';
 
 export type User = {
   id: string;
@@ -82,9 +82,9 @@ const DEFAULT_PACKAGES = [
 
 const DEFAULT_USERS: User[] = [
   { id: 'u1', name: 'Admin User', role: 'Admin' },
-  { id: 'u2', name: 'Tech Sameer', role: 'Technician' },
-  { id: 'u3', name: 'Advisor Priya', role: 'Advisor' },
-  { id: 'u4', name: 'QC Vikram', role: 'QC' },
+  { id: 'u2', name: 'Sameer', role: 'Installer' },
+  { id: 'u3', name: 'Priya', role: 'Installer' },
+  { id: 'u4', name: 'Vikram', role: 'Installer' },
 ];
 
 const MOCK_JOBS: Job[] = [
@@ -260,7 +260,7 @@ export const useStore = create<AppState>()(
       removeTeamMember: (id) => set((state) => ({ teamMembers: state.teamMembers.filter(m => m.id !== id) })),
     }),
     {
-      name: 'ppf-master-storage-v2', // Changed name to reset storage for new schema
+      name: 'ppf-master-storage-v3', // Changed name to reset storage for new schema with Installer role
     }
   )
 );
