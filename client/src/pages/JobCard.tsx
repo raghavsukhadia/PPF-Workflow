@@ -613,6 +613,91 @@ export default function JobCard() {
                />
              );
            })()}
+           
+           {job.status === 'delivered' && (
+             <Card className="glass-card border-green-500/20">
+               <CardHeader className="border-b border-border/50 bg-green-500/5">
+                 <div className="flex items-center gap-2">
+                   <CheckCircle2 className="w-5 h-5 text-green-500" />
+                   <CardTitle className="text-xl text-green-500">Complete Job Documentation</CardTitle>
+                 </div>
+                 <CardDescription>All photos, notes, and media captured during the workflow</CardDescription>
+               </CardHeader>
+               <CardContent className="p-6 space-y-6">
+                 {job.stages.map((stage: any) => {
+                   const hasPhotos = stage.photos && stage.photos.length > 0;
+                   const hasComments = stage.comments && stage.comments.length > 0;
+                   const hasPpfDetails = stage.id === 7 && stage.ppfDetails && (stage.ppfDetails.brand || stage.ppfDetails.rollImages?.length > 0);
+                   
+                   if (!hasPhotos && !hasComments && !hasPpfDetails) return null;
+                   
+                   return (
+                     <div key={stage.id} className="space-y-3">
+                       <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider border-b border-border/50 pb-2">
+                         Stage {stage.id}: {stage.name}
+                       </h4>
+                       
+                       {hasPpfDetails && (
+                         <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+                           <p className="text-sm font-medium text-primary">PPF Details</p>
+                           {stage.ppfDetails.brand && <p className="text-sm">Brand: {stage.ppfDetails.brand}</p>}
+                           {stage.ppfDetails.rollId && <p className="text-sm">Roll ID: {stage.ppfDetails.rollId}</p>}
+                           {stage.ppfDetails.rollImages && stage.ppfDetails.rollImages.length > 0 && (
+                             <div className="flex flex-wrap gap-2 mt-2">
+                               {stage.ppfDetails.rollImages.map((img: string, idx: number) => (
+                                 <img key={idx} src={img} alt={`PPF Roll ${idx + 1}`} className="w-20 h-20 object-cover rounded-md border border-border" />
+                               ))}
+                             </div>
+                           )}
+                         </div>
+                       )}
+                       
+                       {hasPhotos && (
+                         <div className="space-y-2">
+                           <p className="text-sm font-medium flex items-center gap-2">
+                             <Camera className="w-4 h-4" /> Photos ({stage.photos.length})
+                           </p>
+                           <div className="flex flex-wrap gap-2">
+                             {stage.photos.map((photo: string, idx: number) => (
+                               <a key={idx} href={photo} target="_blank" rel="noopener noreferrer">
+                                 <img 
+                                   src={photo} 
+                                   alt={`Stage ${stage.id} Photo ${idx + 1}`} 
+                                   className="w-24 h-24 object-cover rounded-lg border border-border hover:border-primary transition-colors"
+                                 />
+                               </a>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                       
+                       {hasComments && (
+                         <div className="space-y-2">
+                           <p className="text-sm font-medium flex items-center gap-2">
+                             <StickyNote className="w-4 h-4" /> Notes ({stage.comments.length})
+                           </p>
+                           <div className="space-y-2">
+                             {stage.comments.map((comment: any) => (
+                               <div key={comment.id} className="bg-secondary/30 rounded-lg p-3 text-sm">
+                                 <p>{comment.text}</p>
+                                 <p className="text-xs text-muted-foreground mt-1">
+                                   — {comment.author}, {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+                                 </p>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })}
+                 
+                 {job.stages.every((s: any) => (!s.photos || s.photos.length === 0) && (!s.comments || s.comments.length === 0)) && (
+                   <p className="text-center text-muted-foreground py-8">No photos or notes were captured during this job.</p>
+                 )}
+               </CardContent>
+             </Card>
+           )}
         </div>
       </div>
 
