@@ -994,7 +994,7 @@ function StageDetailView({
          {isBlocked && (
            <div className="absolute inset-0 bg-background/50 z-10 cursor-not-allowed" />
          )}
-         <Tabs defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
+         <Tabs key={`stage-${stage.id}`} defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
             <div className="px-6 py-2 border-b border-border/50">
                <TabsList className={cn("grid w-full", isPpfStage ? "max-w-[500px] grid-cols-3" : "max-w-[400px] grid-cols-2")}>
                   {isPpfStage && (
