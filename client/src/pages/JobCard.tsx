@@ -351,8 +351,13 @@ export default function JobCard() {
 
   const markAsDelivered = () => {
     const updatedStages = [...job.stages];
+    const checkedChecklist = updatedStages[10].checklist.map((item: any) => ({
+      ...item,
+      checked: true
+    }));
     updatedStages[10] = {
       ...updatedStages[10],
+      checklist: checkedChecklist,
       status: 'completed',
       completedAt: new Date().toISOString()
     };
@@ -604,6 +609,7 @@ export default function JobCard() {
                   onBackToCurrentStage={() => setViewingStageIndex(null)}
                   onMarkAsDelivered={markAsDelivered}
                   isJobCompleted={job.status === 'completed'}
+                  isJobDelivered={job.status === 'delivered'}
                />
              );
            })()}
@@ -863,7 +869,8 @@ function StageDetailView({
   isCurrentStage = true,
   onBackToCurrentStage,
   onMarkAsDelivered,
-  isJobCompleted = false
+  isJobCompleted = false,
+  isJobDelivered = false
 }: { 
   jobId: string; 
   stage: JobStage; 
@@ -878,6 +885,7 @@ function StageDetailView({
   onBackToCurrentStage?: () => void;
   onMarkAsDelivered?: () => void;
   isJobCompleted?: boolean;
+  isJobDelivered?: boolean;
 }) {
   const [localChecklist, setLocalChecklist] = useState(stage.checklist);
   
@@ -1254,7 +1262,12 @@ function StageDetailView({
             <AlertTriangle className="w-4 h-4 mr-2" />
             Report Issue
          </Button>
-         {isCurrentStage ? (
+         {isJobDelivered ? (
+           <div className="flex items-center gap-2 px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+             <CheckCircle2 className="w-5 h-5 text-green-500" />
+             <span className="font-bold text-green-500 text-lg">Completed</span>
+           </div>
+         ) : isCurrentStage ? (
            stage.id === 11 ? (
              <Button 
                 onClick={onMarkAsDelivered}
