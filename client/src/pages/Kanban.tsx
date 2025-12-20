@@ -152,17 +152,27 @@ export default function Kanban() {
                              </div>
                            </div>
                            
-                           {col.id === 'ready' && (
-                             <Button 
-                               size="sm" 
-                               className="w-full bg-green-600 hover:bg-green-700 text-white"
-                               onClick={(e) => handleMarkDelivered(job, e)}
-                               data-testid={`button-deliver-${job.id}`}
-                             >
-                               <Truck className="w-4 h-4 mr-2" />
-                               Mark as Delivered
-                             </Button>
-                           )}
+                           {col.id === 'ready' && (() => {
+                            const stage11 = job.stages[10];
+                            const allChecked = stage11?.checklist?.every((item: any) => item.checked) ?? false;
+                            return (
+                              <Button 
+                                size="sm" 
+                                className={cn(
+                                  "w-full",
+                                  allChecked 
+                                    ? "bg-green-600 hover:bg-green-700 text-white" 
+                                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                                )}
+                                onClick={(e) => allChecked && handleMarkDelivered(job, e)}
+                                disabled={!allChecked}
+                                data-testid={`button-deliver-${job.id}`}
+                              >
+                                <Truck className="w-4 h-4 mr-2" />
+                                {allChecked ? 'Mark as Delivered' : 'Complete Checklist First'}
+                              </Button>
+                            );
+                          })()}
                          </CardContent>
                        </Card>
                      </Link>
