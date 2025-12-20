@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { JobStage, PpfDetails } from "@/lib/store";
-import { useJob, useUpdateJob, useUsers, useJobIssues, useCreateJobIssue, useUpdateJobIssue, ApiJobIssue, useAuth } from "@/lib/api";
+import { useJob, useUpdateJob, useUsers, useJobIssues, useCreateJobIssue, useUpdateJobIssue, useDeleteJobIssue, ApiJobIssue, useAuth } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -77,6 +77,7 @@ export default function JobCard() {
   const updateJob = useUpdateJob();
   const createIssue = useCreateJobIssue();
   const updateIssue = useUpdateJobIssue();
+  const deleteIssue = useDeleteJobIssue();
   const { toast } = useToast();
   
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
@@ -218,21 +219,17 @@ export default function JobCard() {
   };
 
   const handleResolveIssue = (issue: ApiJobIssue) => {
-    updateIssue.mutate(
+    deleteIssue.mutate(
       {
         id: issue.id,
-        jobId: job.id,
-        data: {
-          status: 'resolved',
-          resolvedAt: new Date().toISOString()
-        }
+        jobId: job.id
       },
       {
         onSuccess: () => {
           setSelectedIssue(null);
           toast({
             title: "Issue Resolved",
-            description: "The issue has been marked as resolved."
+            description: "The issue has been resolved and removed."
           });
         },
         onError: (error) => {
