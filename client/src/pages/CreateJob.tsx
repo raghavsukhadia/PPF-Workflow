@@ -92,6 +92,8 @@ export default function CreateJob() {
     const promisedDateTime = new Date(dateOnly);
     promisedDateTime.setHours(hours, minutes, 0, 0);
     
+    const inwardPhotoUrls = Object.values(inwardPhotos);
+    
     const jobData = {
       customerName: values.customerName,
       customerPhone: values.customerPhone,
@@ -110,7 +112,7 @@ export default function CreateJob() {
         ...t,
         status: i === 0 ? 'in-progress' : 'pending',
         checklist: t.checklist.map(c => ({ item: c, checked: false })),
-        photos: [],
+        photos: i === 0 ? inwardPhotoUrls : [],
         assignedTo: values.assignedTo || null,
         startedAt: i === 0 ? new Date().toISOString() : null
       }))),
