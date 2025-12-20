@@ -307,7 +307,7 @@ export default function JobCard() {
         data: {
           currentStage: newStageNo,
           stages: JSON.stringify(updatedStages),
-          status: newStageNo === 11 ? 'completed' : 'active'
+          status: 'active'
         }
       },
       {
