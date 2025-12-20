@@ -87,6 +87,7 @@ export default function JobCard() {
   const [issueMediaUrls, setIssueMediaUrls] = useState<string[]>([]);
   const [issueMediaFiles, setIssueMediaFiles] = useState<{ name: string; type: string; dataUrl: string }[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<ApiJobIssue | null>(null);
+  const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(null);
   
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -259,6 +260,18 @@ export default function JobCard() {
     const updatedStages = [...job.stages];
 
     if (direction === 'next' && job.currentStage < 11) {
+      const currentStageData = updatedStages[job.currentStage - 1];
+      const allChecked = currentStageData.checklist.every((item: any) => item.checked);
+      
+      if (!allChecked) {
+        toast({
+          variant: "destructive",
+          title: "Checklist Incomplete",
+          description: "Please complete all checklist items before moving to the next stage."
+        });
+        return;
+      }
+      
       updatedStages[job.currentStage - 1] = {
         ...updatedStages[job.currentStage - 1],
         status: 'completed',
@@ -272,6 +285,8 @@ export default function JobCard() {
         status: 'in-progress',
         startedAt: new Date().toISOString()
       };
+      
+      setViewingStageIndex(null);
     } else if (direction === 'prev' && job.currentStage > 1) {
       updatedStages[job.currentStage - 1] = {
         ...updatedStages[job.currentStage - 1],
@@ -282,6 +297,8 @@ export default function JobCard() {
         ...updatedStages[newStageNo - 1],
         status: 'in-progress'
       };
+      
+      setViewingStageIndex(null);
     }
 
     updateJob.mutate(
@@ -440,8 +457,18 @@ export default function JobCard() {
                      {job.stages.map((stage: any, index: number) => {
                         const stageIssues = issues?.filter(i => i.stageId === stage.id && i.status === 'open') || [];
                         const hasStageCriticalIssues = stageIssues.some(i => i.severity === 'critical');
+                        const isViewing = viewingStageIndex === index;
                         return (
-                          <div key={stage.id} className={cn("group flex gap-4 transition-opacity", stage.id > job.currentStage && "opacity-50")}>
+                          <div 
+                            key={stage.id} 
+                            className={cn(
+                              "group flex gap-4 transition-all cursor-pointer hover:bg-secondary/30 rounded-lg p-2 -mx-2",
+                              stage.id > job.currentStage && "opacity-50",
+                              isViewing && "bg-primary/10 ring-1 ring-primary/30"
+                            )}
+                            onClick={() => setViewingStageIndex(index)}
+                            data-testid={`stage-${stage.id}`}
+                          >
                              <div className={cn(
                                 "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors relative",
                                 stage.status === 'completed' ? "border-green-500 text-green-500" :
@@ -479,6 +506,7 @@ export default function JobCard() {
                                    <Badge variant="outline" className="mt-1 text-[10px] border-amber-500/50 text-amber-500">{stageIssues.length} Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
                                 )}
                              </div>
+                             <ChevronRight className={cn("w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity self-center", isViewing && "opacity-100 text-primary")} />
                           </div>
                         );
                      })}
@@ -519,17 +547,28 @@ export default function JobCard() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-           <StageDetailView 
-              jobId={job.id} 
-              stage={job.stages[job.currentStage - 1]} 
-              teamMembers={users || []}
-              onComplete={() => moveJobStage('next')}
-              onUpdate={(data) => updateJobStage(job.currentStage, data)}
-              onReportIssue={() => setIsIssueModalOpen(true)}
-              isBlocked={hasCriticalIssues}
-              currentStageIssueCount={currentStageOpenIssues.length}
-              currentUserName={authUser?.name || 'User'}
-           />
+           {(() => {
+             const activeStageIndex = viewingStageIndex !== null ? viewingStageIndex : job.currentStage - 1;
+             const activeStage = job.stages[activeStageIndex];
+             const isCurrentStage = activeStageIndex === job.currentStage - 1;
+             const stageIssues = issues?.filter(i => i.stageId === activeStage.id && i.status === 'open') || [];
+             const stageHasCriticalIssues = stageIssues.some(i => i.severity === 'critical');
+             return (
+               <StageDetailView 
+                  jobId={job.id} 
+                  stage={activeStage} 
+                  teamMembers={users || []}
+                  onComplete={() => moveJobStage('next')}
+                  onUpdate={(data) => updateJobStage(activeStage.id, data)}
+                  onReportIssue={() => setIsIssueModalOpen(true)}
+                  isBlocked={stageHasCriticalIssues}
+                  currentStageIssueCount={stageIssues.length}
+                  currentUserName={authUser?.name || 'User'}
+                  isCurrentStage={isCurrentStage}
+                  onBackToCurrentStage={() => setViewingStageIndex(null)}
+               />
+             );
+           })()}
         </div>
       </div>
 
@@ -778,7 +817,9 @@ function StageDetailView({
   onReportIssue,
   isBlocked,
   currentStageIssueCount = 0,
-  currentUserName = 'User'
+  currentUserName = 'User',
+  isCurrentStage = true,
+  onBackToCurrentStage
 }: { 
   jobId: string; 
   stage: JobStage; 
@@ -789,6 +830,8 @@ function StageDetailView({
   isBlocked: boolean;
   currentStageIssueCount?: number;
   currentUserName?: string;
+  isCurrentStage?: boolean;
+  onBackToCurrentStage?: () => void;
 }) {
   const isAllChecked = stage.checklist.every(item => item.checked);
   const stagePhotoInputRef = useRef<HTMLInputElement>(null);
@@ -849,8 +892,22 @@ function StageDetailView({
       <CardHeader className="border-b border-border/50 bg-white/5 pb-4">
          <div className="flex items-center justify-between">
             <div>
-               <p className={cn("text-sm font-medium mb-1", isBlocked ? "text-destructive" : currentStageIssueCount > 0 ? "text-amber-500" : "text-primary")}>
-                 {isBlocked ? "STAGE BLOCKED - Critical Issue" : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
+               <p className={cn(
+                 "text-sm font-medium mb-1",
+                 !isCurrentStage ? "text-muted-foreground" :
+                 isBlocked ? "text-destructive" : 
+                 currentStageIssueCount > 0 ? "text-amber-500" : "text-primary"
+               )}>
+                 {!isCurrentStage ? (
+                   <span className="flex items-center gap-2">
+                     VIEWING STAGE
+                     {onBackToCurrentStage && (
+                       <Button variant="link" size="sm" className="h-auto p-0 text-primary" onClick={onBackToCurrentStage}>
+                         Back to Current Stage
+                       </Button>
+                     )}
+                   </span>
+                 ) : isBlocked ? "STAGE BLOCKED - Critical Issue" : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
                </p>
                <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
             </div>
@@ -1019,18 +1076,30 @@ function StageDetailView({
             <AlertTriangle className="w-4 h-4 mr-2" />
             Report Issue
          </Button>
-         <Button 
-            onClick={onComplete}
-            disabled={!isAllChecked || isBlocked}
-            className={cn(
-               "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
-               (isAllChecked && !isBlocked) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
-            )}
-            data-testid="button-complete-stage"
-         >
-            {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}
-            <ChevronRight className="w-4 h-4 ml-2" />
-         </Button>
+         {isCurrentStage ? (
+           <Button 
+              onClick={onComplete}
+              disabled={!isAllChecked || isBlocked}
+              className={cn(
+                 "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
+                 (isAllChecked && !isBlocked) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+              )}
+              data-testid="button-complete-stage"
+           >
+              {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}
+              <ChevronRight className="w-4 h-4 ml-2" />
+           </Button>
+         ) : (
+           <Button 
+              variant="secondary"
+              onClick={onBackToCurrentStage}
+              className="w-full md:w-auto min-w-[200px]"
+              data-testid="button-back-to-current"
+           >
+              Back to Current Stage
+              <ChevronRight className="w-4 h-4 ml-2" />
+           </Button>
+         )}
       </div>
     </Card>
   );
