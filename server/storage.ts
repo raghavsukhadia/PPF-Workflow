@@ -5,6 +5,7 @@ import {
   ppfProducts,
   ppfRolls,
   jobPpfUsage,
+  jobIssues,
   type User, 
   type InsertUser,
   type Job,
@@ -16,7 +17,9 @@ import {
   type PpfRoll,
   type InsertPpfRoll,
   type JobPpfUsage,
-  type InsertJobPpfUsage
+  type InsertJobPpfUsage,
+  type JobIssue,
+  type InsertJobIssue
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -53,6 +56,12 @@ export interface IStorage {
   getJobPpfUsageById(id: string): Promise<JobPpfUsage | undefined>;
   createJobPpfUsage(usage: InsertJobPpfUsage): Promise<JobPpfUsage>;
   deleteJobPpfUsage(id: string): Promise<void>;
+
+  getJobIssues(jobId: string): Promise<JobIssue[]>;
+  getJobIssue(id: string): Promise<JobIssue | undefined>;
+  createJobIssue(issue: InsertJobIssue): Promise<JobIssue>;
+  updateJobIssue(id: string, data: Partial<JobIssue>): Promise<JobIssue | undefined>;
+  deleteJobIssue(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -223,6 +232,36 @@ export class DatabaseStorage implements IStorage {
       }
     }
     await db.delete(jobPpfUsage).where(eq(jobPpfUsage.id, id));
+  }
+
+  async getJobIssues(jobId: string): Promise<JobIssue[]> {
+    return await db.select().from(jobIssues).where(eq(jobIssues.jobId, jobId)).orderBy(desc(jobIssues.createdAt));
+  }
+
+  async getJobIssue(id: string): Promise<JobIssue | undefined> {
+    const [issue] = await db.select().from(jobIssues).where(eq(jobIssues.id, id));
+    return issue || undefined;
+  }
+
+  async createJobIssue(insertIssue: InsertJobIssue): Promise<JobIssue> {
+    const [issue] = await db
+      .insert(jobIssues)
+      .values(insertIssue)
+      .returning();
+    return issue;
+  }
+
+  async updateJobIssue(id: string, data: Partial<JobIssue>): Promise<JobIssue | undefined> {
+    const [issue] = await db
+      .update(jobIssues)
+      .set(data)
+      .where(eq(jobIssues.id, id))
+      .returning();
+    return issue || undefined;
+  }
+
+  async deleteJobIssue(id: string): Promise<void> {
+    await db.delete(jobIssues).where(eq(jobIssues.id, id));
   }
 }
 

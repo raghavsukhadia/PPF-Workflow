@@ -122,3 +122,36 @@ export const insertJobPpfUsageSchema = createInsertSchema(jobPpfUsage).omit({
 
 export type InsertJobPpfUsage = z.infer<typeof insertJobPpfUsageSchema>;
 export type JobPpfUsage = typeof jobPpfUsage.$inferSelect;
+
+// Job Issues - multiple issues per job with media support
+export const jobIssues = pgTable("job_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull(),
+  stageId: integer("stage_id").notNull(),
+  issueType: text("issue_type").notNull(), // scratch, dent, paint_defect, surface_damage, other
+  description: text("description").notNull(),
+  location: text("location"), // e.g., "Left front fender", "Hood center"
+  severity: text("severity").notNull().default('medium'), // low, medium, high, critical
+  status: text("status").notNull().default('open'), // open, acknowledged, resolved
+  reportedBy: text("reported_by").notNull(),
+  resolvedBy: text("resolved_by"),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  mediaUrls: text("media_urls").array(), // array of image/video/audio URLs
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertJobIssueSchema = createInsertSchema(jobIssues).omit({
+  id: true,
+  createdAt: true,
+  resolvedAt: true,
+  resolvedBy: true,
+  resolutionNotes: true,
+  status: true,
+}).extend({
+  status: z.enum(['open', 'acknowledged', 'resolved']).optional().default('open'),
+  severity: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
+});
+
+export type InsertJobIssue = z.infer<typeof insertJobIssueSchema>;
+export type JobIssue = typeof jobIssues.$inferSelect;

@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { JobStage } from "@/lib/store";
-import { useJob, useUpdateJob, useUsers, ApiJob } from "@/lib/api";
+import { useJob, useUpdateJob, useUsers, useJobIssues, useCreateJobIssue, useUpdateJobIssue, ApiJobIssue, useAuth } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -11,38 +11,80 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
   CheckCircle2, 
-  Circle, 
-  Clock, 
   AlertTriangle, 
   User, 
-  Calendar,
   ChevronRight,
   Camera,
-  MessageSquare,
   StickyNote,
   AlertCircle,
-  HardHat
+  HardHat,
+  Image,
+  Video,
+  Mic,
+  X,
+  Plus,
+  MapPin,
+  CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+
+const STAGE_NAMES: Record<number, string> = {
+  1: "Vehicle Inward",
+  2: "Inspection",
+  3: "Washing",
+  4: "Surface Preparation",
+  5: "Parts Opening",
+  6: "Washing (2)",
+  7: "PPF Application",
+  8: "Parts Repacking",
+  9: "Cleaning & Finishing",
+  10: "Final Inspection",
+  11: "Delivered"
+};
+
+const ISSUE_TYPES = [
+  { value: "scratch", label: "Scratch" },
+  { value: "dent", label: "Dent" },
+  { value: "paint_defect", label: "Paint Defect" },
+  { value: "surface_damage", label: "Surface Damage" },
+  { value: "contamination", label: "Contamination" },
+  { value: "other", label: "Other" }
+];
+
+const SEVERITY_LEVELS = [
+  { value: "low", label: "Low", color: "bg-blue-500" },
+  { value: "medium", label: "Medium", color: "bg-yellow-500" },
+  { value: "high", label: "High", color: "bg-orange-500" },
+  { value: "critical", label: "Critical", color: "bg-red-500" }
+];
 
 export default function JobCard() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { data: apiJob, isLoading: jobLoading } = useJob(id);
   const { data: users, isLoading: usersLoading } = useUsers();
+  const { data: authUser } = useAuth();
+  const { data: issues, isLoading: issuesLoading } = useJobIssues(id);
   const updateJob = useUpdateJob();
+  const createIssue = useCreateJobIssue();
+  const updateIssue = useUpdateJobIssue();
   const { toast } = useToast();
   
-  const [issueDescription, setIssueDescription] = useState("");
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [issueType, setIssueType] = useState("scratch");
+  const [issueDescription, setIssueDescription] = useState("");
+  const [issueLocation, setIssueLocation] = useState("");
+  const [issueSeverity, setIssueSeverity] = useState("medium");
+  const [issueMediaUrls, setIssueMediaUrls] = useState<string[]>([]);
+  const [selectedIssue, setSelectedIssue] = useState<ApiJobIssue | null>(null);
 
   const job = useMemo(() => {
     if (!apiJob) return null;
@@ -50,15 +92,10 @@ export default function JobCard() {
     const stages = typeof apiJob.stages === 'string' 
       ? JSON.parse(apiJob.stages) 
       : apiJob.stages;
-    
-    const activeIssue = typeof apiJob.activeIssue === 'string'
-      ? (apiJob.activeIssue ? JSON.parse(apiJob.activeIssue) : null)
-      : apiJob.activeIssue;
 
     return {
       ...apiJob,
       stages,
-      activeIssue,
       vehicle: {
         brand: apiJob.vehicleBrand,
         model: apiJob.vehicleModel,
@@ -70,7 +107,27 @@ export default function JobCard() {
     };
   }, [apiJob]);
 
-  if (jobLoading || usersLoading) {
+  const openIssues = useMemo(() => 
+    issues?.filter(i => i.status === 'open') || [], 
+    [issues]
+  );
+
+  const resolvedIssues = useMemo(() => 
+    issues?.filter(i => i.status === 'resolved') || [], 
+    [issues]
+  );
+
+  const currentStageOpenIssues = useMemo(() =>
+    openIssues.filter(i => i.stageId === (job?.currentStage || 0)),
+    [openIssues, job?.currentStage]
+  );
+
+  const hasCriticalIssues = useMemo(() =>
+    currentStageOpenIssues.some(i => i.severity === 'critical'),
+    [currentStageOpenIssues]
+  );
+
+  if (jobLoading || usersLoading || issuesLoading) {
     return (
       <div className="p-8 text-center text-muted-foreground" data-testid="loading-state">
         Loading job details...
@@ -84,72 +141,35 @@ export default function JobCard() {
 
   const assignedUser = users?.find(u => u.id === job.assignedTo);
 
-  const handleReportIssue = () => {
-    if (issueDescription.trim()) {
-      const currentStage = job.stages[job.currentStage - 1];
-      const issue = {
-        id: `issue-${Date.now()}`,
-        stageId: job.currentStage,
-        description: issueDescription,
-        reportedBy: 'Current User',
-        reportedAt: new Date().toISOString(),
-        resolved: false
-      };
-
-      const updatedStages = job.stages.map((s: any) =>
-        s.id === job.currentStage ? { ...s, status: 'issue' } : s
-      );
-
-      updateJob.mutate(
-        {
-          id: job.id,
-          data: {
-            activeIssue: JSON.stringify(issue),
-            stages: JSON.stringify(updatedStages),
-            status: 'hold'
-          }
-        },
-        {
-          onSuccess: () => {
-            setIsIssueModalOpen(false);
-            setIssueDescription("");
-            toast({
-              variant: "destructive",
-              title: "Issue Reported",
-              description: "The job has been flagged and put on hold."
-            });
-          },
-          onError: (error) => {
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: error.message
-            });
-          }
-        }
-      );
+  const handleCreateIssue = () => {
+    if (!issueDescription.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing Description",
+        description: "Please describe the issue."
+      });
+      return;
     }
-  };
 
-  const handleResolveIssue = () => {
-    const updatedStages = job.stages.map((s: any) =>
-      s.id === job.activeIssue?.stageId ? { ...s, status: 'in-progress' } : s
-    );
-
-    updateJob.mutate(
+    createIssue.mutate(
       {
-        id: job.id,
+        jobId: job.id,
         data: {
-          activeIssue: null,
-          stages: JSON.stringify(updatedStages),
-          status: 'active'
+          stageId: job.currentStage,
+          issueType,
+          description: issueDescription.trim(),
+          location: issueLocation.trim() || undefined,
+          severity: issueSeverity,
+          mediaUrls: issueMediaUrls.length > 0 ? issueMediaUrls : undefined
         }
       },
       {
         onSuccess: () => {
+          setIsIssueModalOpen(false);
+          resetIssueForm();
           toast({
-            title: "Issue Resolved",
-            description: "Job is back in progress."
+            title: "Issue Reported",
+            description: "The issue has been logged and will be visible throughout the job."
           });
         },
         onError: (error) => {
@@ -161,6 +181,43 @@ export default function JobCard() {
         }
       }
     );
+  };
+
+  const handleResolveIssue = (issue: ApiJobIssue) => {
+    updateIssue.mutate(
+      {
+        id: issue.id,
+        jobId: job.id,
+        data: {
+          status: 'resolved',
+          resolvedAt: new Date().toISOString()
+        }
+      },
+      {
+        onSuccess: () => {
+          setSelectedIssue(null);
+          toast({
+            title: "Issue Resolved",
+            description: "The issue has been marked as resolved."
+          });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message
+          });
+        }
+      }
+    );
+  };
+
+  const resetIssueForm = () => {
+    setIssueType("scratch");
+    setIssueDescription("");
+    setIssueLocation("");
+    setIssueSeverity("medium");
+    setIssueMediaUrls([]);
   };
 
   const moveJobStage = (direction: 'next' | 'prev') => {
@@ -198,7 +255,8 @@ export default function JobCard() {
         id: job.id,
         data: {
           currentStage: newStageNo,
-          stages: JSON.stringify(updatedStages)
+          stages: JSON.stringify(updatedStages),
+          status: newStageNo === 11 ? 'completed' : 'active'
         }
       },
       {
@@ -237,19 +295,27 @@ export default function JobCard() {
     );
   };
 
+  const getSeverityColor = (severity: string) => {
+    return SEVERITY_LEVELS.find(s => s.value === severity)?.color || "bg-gray-500";
+  };
+
   return (
     <div className="space-y-6 pb-20">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/")} data-testid="button-back">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-display font-bold">{job.vehicle.brand} {job.vehicle.model}</h2>
-              <Badge variant={job.activeIssue ? "destructive" : "outline"} className={cn("text-xs uppercase tracking-wider", job.activeIssue && "animate-pulse")}>
-                {job.activeIssue ? "ISSUE REPORTED" : job.status}
+              {openIssues.length > 0 && (
+                <Badge variant="destructive" className="text-xs uppercase tracking-wider animate-pulse">
+                  {openIssues.length} ISSUE{openIssues.length > 1 ? 'S' : ''} OPEN
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs uppercase tracking-wider">
+                {job.status}
               </Badge>
             </div>
             <p className="text-muted-foreground">{job.jobNo} • {job.package}</p>
@@ -274,22 +340,55 @@ export default function JobCard() {
         </div>
       </div>
 
-      {job.activeIssue && (
-        <div className="bg-destructive/10 border border-destructive/50 rounded-xl p-4 flex items-start gap-4 animate-in slide-in-from-top-4">
-          <AlertCircle className="w-6 h-6 text-destructive shrink-0 mt-1" />
-          <div className="flex-1">
-            <h4 className="font-bold text-destructive">Active Issue Reported</h4>
-            <p className="text-sm text-foreground/80 mt-1">{job.activeIssue.description}</p>
-            <p className="text-xs text-muted-foreground mt-2">Reported by {job.activeIssue.reportedBy} at {format(new Date(job.activeIssue.reportedAt), 'h:mm a')}</p>
-          </div>
-          <Button variant="default" className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleResolveIssue}>
-            Resolve Issue
-          </Button>
-        </div>
+      {openIssues.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-destructive" />
+                <CardTitle className="text-lg text-destructive">Open Issues ({openIssues.length})</CardTitle>
+              </div>
+              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => setIsIssueModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-1" /> Add Issue
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="py-2">
+            <div className="space-y-2">
+              {openIssues.map((issue) => (
+                <div 
+                  key={issue.id} 
+                  className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/50 cursor-pointer hover:border-primary/30"
+                  onClick={() => setSelectedIssue(issue)}
+                  data-testid={`issue-${issue.id}`}
+                >
+                  <div className={cn("w-2 h-2 rounded-full mt-2 shrink-0", getSeverityColor(issue.severity))} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-xs capitalize">{issue.issueType.replace('_', ' ')}</Badge>
+                      <Badge variant="secondary" className="text-xs">Stage {issue.stageId}: {STAGE_NAMES[issue.stageId]}</Badge>
+                    </div>
+                    <p className="text-sm line-clamp-1">{issue.description}</p>
+                    {issue.location && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3" /> {issue.location}
+                      </p>
+                    )}
+                  </div>
+                  {issue.mediaUrls && issue.mediaUrls.length > 0 && (
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Image className="w-4 h-4" />
+                      <span className="text-xs">{issue.mediaUrls.length}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid lg:grid-cols-3 gap-8 h-full">
-        {/* Left Column: Progress Timeline */}
         <div className="lg:col-span-1 space-y-4">
           <Card className="glass-card border-border/50 h-full max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader>
@@ -302,48 +401,89 @@ export default function JobCard() {
             <CardContent className="flex-1 overflow-hidden p-0">
                <ScrollArea className="h-full px-6 pb-6">
                   <div className="space-y-6 relative">
-                     {/* Vertical Line */}
                      <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-border/50 -z-10" />
                      
-                     {job.stages.map((stage, index) => (
-                        <div key={stage.id} className={cn("group flex gap-4 transition-opacity", stage.id > job.currentStage && "opacity-50")}>
-                           <div className={cn(
-                              "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors",
-                              stage.status === 'completed' ? "border-green-500 text-green-500" :
-                              stage.status === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
-                              stage.status === 'issue' ? "border-red-500 text-red-500 bg-red-500/10" :
-                              "border-muted-foreground text-muted-foreground"
-                           )}>
-                              {stage.status === 'completed' ? <CheckCircle2 className="w-5 h-5" /> : 
-                               stage.status === 'issue' ? <AlertTriangle className="w-4 h-4" /> :
-                               <span className="text-xs font-bold">{stage.id}</span>}
-                           </div>
-                           <div className="pt-1 flex-1">
-                              <h4 className={cn("font-medium text-sm leading-none mb-1", 
-                                stage.id === job.currentStage && "text-primary",
-                                stage.status === 'issue' && "text-destructive"
-                              )}>
-                                 {stage.name}
-                              </h4>
-                              {stage.status === 'completed' && stage.completedAt && (
-                                 <p className="text-[10px] text-muted-foreground">Done: {format(new Date(stage.completedAt), 'MMM d, h:mm a')}</p>
-                              )}
-                              {stage.status === 'in-progress' && (
-                                 <Badge variant="secondary" className="mt-1 text-[10px] bg-primary/10 text-primary border-primary/20">In Progress</Badge>
-                              )}
-                              {stage.status === 'issue' && (
-                                 <Badge variant="destructive" className="mt-1 text-[10px]">Issue Reported</Badge>
-                              )}
-                           </div>
-                        </div>
-                     ))}
+                     {job.stages.map((stage: any, index: number) => {
+                        const stageIssues = issues?.filter(i => i.stageId === stage.id && i.status === 'open') || [];
+                        const hasStageCriticalIssues = stageIssues.some(i => i.severity === 'critical');
+                        return (
+                          <div key={stage.id} className={cn("group flex gap-4 transition-opacity", stage.id > job.currentStage && "opacity-50")}>
+                             <div className={cn(
+                                "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors relative",
+                                stage.status === 'completed' ? "border-green-500 text-green-500" :
+                                hasStageCriticalIssues ? "border-red-500 text-red-500 bg-red-500/10" :
+                                stage.status === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
+                                stageIssues.length > 0 ? "border-amber-500 text-amber-500" :
+                                "border-muted-foreground text-muted-foreground"
+                             )}>
+                                {stage.status === 'completed' ? <CheckCircle2 className="w-5 h-5" /> : 
+                                 hasStageCriticalIssues ? <AlertTriangle className="w-4 h-4" /> :
+                                 <span className="text-xs font-bold">{stage.id}</span>}
+                                {stageIssues.length > 0 && (
+                                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full text-[10px] text-destructive-foreground flex items-center justify-center font-bold">
+                                    {stageIssues.length}
+                                  </span>
+                                )}
+                             </div>
+                             <div className="pt-1 flex-1">
+                                <h4 className={cn("font-medium text-sm leading-none mb-1", 
+                                  stage.id === job.currentStage && "text-primary",
+                                  hasStageCriticalIssues && "text-destructive"
+                                )}>
+                                   {stage.name}
+                                </h4>
+                                {stage.status === 'completed' && stage.completedAt && (
+                                   <p className="text-[10px] text-muted-foreground">Done: {format(new Date(stage.completedAt), 'MMM d, h:mm a')}</p>
+                                )}
+                                {stage.status === 'in-progress' && !hasStageCriticalIssues && (
+                                   <Badge variant="secondary" className="mt-1 text-[10px] bg-primary/10 text-primary border-primary/20">In Progress</Badge>
+                                )}
+                                {hasStageCriticalIssues && (
+                                   <Badge variant="destructive" className="mt-1 text-[10px]">{stageIssues.length} Critical Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
+                                )}
+                                {stageIssues.length > 0 && !hasStageCriticalIssues && (
+                                   <Badge variant="outline" className="mt-1 text-[10px] border-amber-500/50 text-amber-500">{stageIssues.length} Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
+                                )}
+                             </div>
+                          </div>
+                        );
+                     })}
                   </div>
                </ScrollArea>
             </CardContent>
           </Card>
+
+          {resolvedIssues.length > 0 && (
+            <Card className="glass-card border-green-500/20">
+              <CardHeader className="py-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <CardTitle className="text-sm text-green-500">Resolved Issues ({resolvedIssues.length})</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="py-2">
+                <ScrollArea className="max-h-[200px]">
+                  <div className="space-y-2">
+                    {resolvedIssues.map((issue) => (
+                      <div 
+                        key={issue.id} 
+                        className="flex items-start gap-2 p-2 rounded-lg bg-green-500/5 border border-green-500/10 text-sm cursor-pointer hover:bg-green-500/10"
+                        onClick={() => setSelectedIssue(issue)}
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground line-through">{issue.description}</p>
+                          <p className="text-[10px] text-green-500">Resolved by {issue.resolvedBy}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Right Column: Active Stage Details */}
         <div className="lg:col-span-2 space-y-6">
            <StageDetailView 
               jobId={job.id} 
@@ -352,34 +492,208 @@ export default function JobCard() {
               onComplete={() => moveJobStage('next')}
               onUpdate={(data) => updateJobStage(job.currentStage, data)}
               onReportIssue={() => setIsIssueModalOpen(true)}
-              isBlocked={!!job.activeIssue}
+              isBlocked={hasCriticalIssues}
+              currentStageIssueCount={currentStageOpenIssues.length}
            />
         </div>
       </div>
 
-      <Dialog open={isIssueModalOpen} onOpenChange={setIsIssueModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog open={isIssueModalOpen} onOpenChange={(open) => { setIsIssueModalOpen(open); if (!open) resetIssueForm(); }}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Report an Issue</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Report an Issue
+            </DialogTitle>
             <DialogDescription>
-              Describe the issue preventing this stage from being completed. This will flag the job and notify the team.
+              Document any issues found during Stage {job.currentStage}: {STAGE_NAMES[job.currentStage]}. Issues will be visible throughout the job.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="issue">Issue Description</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Issue Type</Label>
+                <Select value={issueType} onValueChange={setIssueType}>
+                  <SelectTrigger data-testid="select-issue-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ISSUE_TYPES.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Severity</Label>
+                <Select value={issueSeverity} onValueChange={setIssueSeverity}>
+                  <SelectTrigger data-testid="select-issue-severity">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SEVERITY_LEVELS.map(s => (
+                      <SelectItem key={s.value} value={s.value}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn("w-2 h-2 rounded-full", s.color)} />
+                          {s.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Location on Vehicle</Label>
+              <Input 
+                placeholder="e.g., Left front fender, Hood center, Rear bumper..." 
+                value={issueLocation}
+                onChange={(e) => setIssueLocation(e.target.value)}
+                data-testid="input-issue-location"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
               <Textarea 
-                id="issue" 
-                placeholder="e.g. Paint defect found on left door panel..." 
+                placeholder="Describe the issue in detail..." 
                 value={issueDescription}
                 onChange={(e) => setIssueDescription(e.target.value)}
+                className="min-h-[100px]"
+                data-testid="input-issue-description"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attach Media (Photos, Videos, Audio)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <button 
+                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+                  onClick={() => {
+                    const url = prompt("Enter image URL:");
+                    if (url) setIssueMediaUrls([...issueMediaUrls, url]);
+                  }}
+                  data-testid="button-add-image"
+                >
+                  <Image className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">Photo</span>
+                </button>
+                <button 
+                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+                  onClick={() => {
+                    const url = prompt("Enter video URL:");
+                    if (url) setIssueMediaUrls([...issueMediaUrls, url]);
+                  }}
+                  data-testid="button-add-video"
+                >
+                  <Video className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">Video</span>
+                </button>
+                <button 
+                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+                  onClick={() => {
+                    const url = prompt("Enter audio URL:");
+                    if (url) setIssueMediaUrls([...issueMediaUrls, url]);
+                  }}
+                  data-testid="button-add-audio"
+                >
+                  <Mic className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">Audio</span>
+                </button>
+              </div>
+              {issueMediaUrls.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {issueMediaUrls.map((url, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-secondary/50 rounded px-2 py-1 text-xs">
+                      <span className="truncate max-w-[150px]">{url}</span>
+                      <button onClick={() => setIssueMediaUrls(issueMediaUrls.filter((_, i) => i !== idx))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setIsIssueModalOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReportIssue}>Report Issue</Button>
+            <Button variant="destructive" onClick={handleCreateIssue} data-testid="button-submit-issue">Report Issue</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedIssue} onOpenChange={(open) => !open && setSelectedIssue(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          {selectedIssue && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-3 h-3 rounded-full", getSeverityColor(selectedIssue.severity))} />
+                  <DialogTitle className="capitalize">{selectedIssue.issueType.replace('_', ' ')} Issue</DialogTitle>
+                </div>
+                <DialogDescription>
+                  Stage {selectedIssue.stageId}: {STAGE_NAMES[selectedIssue.stageId]}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Description</Label>
+                  <p className="text-sm mt-1">{selectedIssue.description}</p>
+                </div>
+                {selectedIssue.location && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Location</Label>
+                    <p className="text-sm mt-1 flex items-center gap-1">
+                      <MapPin className="w-4 h-4" /> {selectedIssue.location}
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-4">
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Severity</Label>
+                    <Badge variant="secondary" className="mt-1 capitalize">{selectedIssue.severity}</Badge>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Status</Label>
+                    <Badge variant={selectedIssue.status === 'resolved' ? 'default' : 'destructive'} className="mt-1 capitalize">
+                      {selectedIssue.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Reported By</Label>
+                  <p className="text-sm mt-1">{selectedIssue.reportedBy} on {format(new Date(selectedIssue.createdAt), 'PPP p')}</p>
+                </div>
+                {selectedIssue.resolvedBy && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Resolved By</Label>
+                    <p className="text-sm mt-1">{selectedIssue.resolvedBy} on {selectedIssue.resolvedAt ? format(new Date(selectedIssue.resolvedAt), 'PPP p') : '-'}</p>
+                  </div>
+                )}
+                {selectedIssue.mediaUrls && selectedIssue.mediaUrls.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Attached Media</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedIssue.mediaUrls.map((url, idx) => (
+                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline truncate max-w-[200px]">
+                          {url}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setSelectedIssue(null)}>Close</Button>
+                {selectedIssue.status === 'open' && (
+                  <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => handleResolveIssue(selectedIssue)} data-testid="button-resolve-issue">
+                    <CheckCircle className="w-4 h-4 mr-2" /> Mark Resolved
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -393,7 +707,8 @@ function StageDetailView({
   onUpdate,
   teamMembers,
   onReportIssue,
-  isBlocked
+  isBlocked,
+  currentStageIssueCount = 0
 }: { 
   jobId: string; 
   stage: JobStage; 
@@ -402,6 +717,7 @@ function StageDetailView({
   teamMembers: any[];
   onReportIssue: () => void;
   isBlocked: boolean;
+  currentStageIssueCount?: number;
 }) {
   const isAllChecked = stage.checklist.every(item => item.checked);
 
@@ -420,8 +736,8 @@ function StageDetailView({
       <CardHeader className="border-b border-border/50 bg-white/5 pb-4">
          <div className="flex items-center justify-between">
             <div>
-               <p className={cn("text-sm font-medium mb-1", isBlocked ? "text-destructive" : "text-primary")}>
-                 {isBlocked ? "STAGE BLOCKED" : "CURRENT STAGE"}
+               <p className={cn("text-sm font-medium mb-1", isBlocked ? "text-destructive" : currentStageIssueCount > 0 ? "text-amber-500" : "text-primary")}>
+                 {isBlocked ? "STAGE BLOCKED - Critical Issue" : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
                </p>
                <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
             </div>
@@ -515,6 +831,7 @@ function StageDetailView({
            className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20"
            onClick={onReportIssue}
            disabled={isBlocked}
+           data-testid="button-report-issue"
          >
             <AlertTriangle className="w-4 h-4 mr-2" />
             Report Issue
@@ -526,6 +843,7 @@ function StageDetailView({
                "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
                (isAllChecked && !isBlocked) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
             )}
+            data-testid="button-complete-stage"
          >
             {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}
             <ChevronRight className="w-4 h-4 ml-2" />

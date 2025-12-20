@@ -5,7 +5,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcrypt";
-import { insertJobSchema, insertServicePackageSchema, insertUserSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema } from "@shared/schema";
+import { insertJobSchema, insertServicePackageSchema, insertUserSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "@shared/schema";
 import { z } from "zod";
 
 const updatePpfRollSchema = z.object({
@@ -324,6 +324,58 @@ export async function registerRoutes(
       res.json({ message: "PPF usage deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete PPF usage" });
+    }
+  });
+
+  // Job Issues Routes
+  app.get("/api/jobs/:id/issues", isAuthenticated, async (req, res) => {
+    try {
+      const issues = await storage.getJobIssues(req.params.id);
+      res.json(issues);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch job issues" });
+    }
+  });
+
+  app.post("/api/jobs/:id/issues", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const validatedData = insertJobIssueSchema.parse({
+        ...req.body,
+        jobId: req.params.id,
+        reportedBy: user?.name || user?.username || 'Unknown' // Server-side auth
+      });
+      const issue = await storage.createJobIssue(validatedData);
+      res.status(201).json(issue);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create job issue" });
+    }
+  });
+
+  app.patch("/api/issues/:id", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const updateData = { ...req.body };
+      // If resolving an issue, set resolvedBy from authenticated user
+      if (updateData.status === 'resolved' && !updateData.resolvedBy) {
+        updateData.resolvedBy = user?.name || user?.username || 'Unknown';
+      }
+      const issue = await storage.updateJobIssue(req.params.id, updateData);
+      if (!issue) {
+        return res.status(404).json({ message: "Issue not found" });
+      }
+      res.json(issue);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to update issue" });
+    }
+  });
+
+  app.delete("/api/issues/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteJobIssue(req.params.id);
+      res.json({ message: "Issue deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete issue" });
     }
   });
 

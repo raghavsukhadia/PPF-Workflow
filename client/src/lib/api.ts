@@ -67,6 +67,23 @@ export interface ApiJobPpfUsage {
   createdAt: string;
 }
 
+export interface ApiJobIssue {
+  id: string;
+  jobId: string;
+  stageId: number;
+  issueType: string;
+  description: string;
+  location: string | null;
+  severity: string;
+  status: string;
+  reportedBy: string;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
+  mediaUrls: string[] | null;
+  createdAt: string;
+}
+
 async function fetcher(url: string, options?: RequestInit) {
   const response = await fetch(url, {
     ...options,
@@ -320,6 +337,64 @@ export function useCreateJobPpfUsage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.jobId, "ppf-usage"] });
       queryClient.invalidateQueries({ queryKey: ["/api/ppf-rolls"] });
+    },
+  });
+}
+
+// Job Issues Hooks
+export function useJobIssues(jobId: string | undefined) {
+  return useQuery<ApiJobIssue[]>({
+    queryKey: ["/api/jobs", jobId, "issues"],
+    queryFn: () => fetcher(`/api/jobs/${jobId}/issues`),
+    enabled: !!jobId,
+  });
+}
+
+export function useCreateJobIssue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, data }: { 
+      jobId: string; 
+      data: { 
+        stageId: number;
+        issueType: string;
+        description: string;
+        location?: string;
+        severity?: string;
+        mediaUrls?: string[];
+      } 
+    }) =>
+      fetcher(`/api/jobs/${jobId}/issues`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.jobId, "issues"] });
+    },
+  });
+}
+
+export function useUpdateJobIssue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, jobId, data }: { id: string; jobId: string; data: Partial<ApiJobIssue> }) =>
+      fetcher(`/api/issues/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.jobId, "issues"] });
+    },
+  });
+}
+
+export function useDeleteJobIssue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, jobId }: { id: string; jobId: string }) =>
+      fetcher(`/api/issues/${id}`, { method: "DELETE" }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.jobId, "issues"] });
     },
   });
 }
