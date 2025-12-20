@@ -41,6 +41,7 @@ export type PpfDetails = {
   brand?: string;
   rollId?: string;
   rollImage?: string;
+  rollImages?: string[];
 };
 
 export type JobStage = {

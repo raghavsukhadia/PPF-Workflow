@@ -844,34 +844,43 @@ function StageDetailView({
   const [newComment, setNewComment] = useState('');
   const [ppfBrand, setPpfBrand] = useState(stage.ppfDetails?.brand || '');
   const [ppfRollId, setPpfRollId] = useState(stage.ppfDetails?.rollId || '');
-  const [ppfRollImage, setPpfRollImage] = useState(stage.ppfDetails?.rollImage || '');
+  const [ppfRollImages, setPpfRollImages] = useState<string[]>(
+    stage.ppfDetails?.rollImages || (stage.ppfDetails?.rollImage ? [stage.ppfDetails.rollImage] : [])
+  );
   
   const isPpfStage = stage.id === 7;
-  const ppfDetailsComplete = !isPpfStage || (ppfBrand.trim() !== '' && ppfRollId.trim() !== '') || ppfRollImage !== '';
+  const ppfDetailsComplete = !isPpfStage || (ppfBrand.trim() !== '' && ppfRollId.trim() !== '') || ppfRollImages.length > 0;
   
-  const [ppfDetailsSaved, setPpfDetailsSaved] = useState(!!stage.ppfDetails?.brand || !!stage.ppfDetails?.rollImage);
+  const [ppfDetailsSaved, setPpfDetailsSaved] = useState(!!stage.ppfDetails?.brand || (stage.ppfDetails?.rollImages && stage.ppfDetails.rollImages.length > 0) || !!stage.ppfDetails?.rollImage);
   
   const savePpfDetails = () => {
     onUpdate({ 
       ppfDetails: { 
         brand: ppfBrand.trim(), 
         rollId: ppfRollId.trim(), 
-        rollImage: ppfRollImage 
+        rollImages: ppfRollImages 
       } 
     });
     setPpfDetailsSaved(true);
   };
   
   const handlePpfRollImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPpfRollImage(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setPpfRollImages(prev => [...prev, dataUrl]);
+      };
+      reader.readAsDataURL(file);
+    });
     e.target.value = '';
+  };
+  
+  const removePpfRollImage = (index: number) => {
+    setPpfRollImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const toggleCheck = (index: number) => {
@@ -1027,27 +1036,31 @@ function StageDetailView({
                   
                   <div className="space-y-2">
                     <Label>Attach Roll Label Photo</Label>
-                    <input type="file" ref={ppfRollImageInputRef} accept="image/*" className="hidden" onChange={handlePpfRollImageSelect} />
-                    {ppfRollImage ? (
-                      <div className="relative w-full max-w-[300px] aspect-video rounded-lg overflow-hidden border border-border">
-                        <img src={ppfRollImage} alt="PPF Roll" className="w-full h-full object-cover" />
-                        <button 
-                          onClick={() => setPpfRollImage('')}
-                          className="absolute top-2 right-2 w-6 h-6 bg-destructive rounded-full flex items-center justify-center"
-                        >
-                          <X className="w-4 h-4 text-white" />
-                        </button>
-                      </div>
-                    ) : (
+                    <input type="file" ref={ppfRollImageInputRef} accept="image/*" className="hidden" onChange={handlePpfRollImageSelect} multiple />
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      {ppfRollImages.map((img, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border">
+                          <img src={img} alt={`PPF Roll ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button 
+                            onClick={() => removePpfRollImage(idx)}
+                            className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                          >
+                            <X className="w-3 h-3 text-white" />
+                          </button>
+                        </div>
+                      ))}
+                      
                       <Button 
                         variant="outline" 
                         onClick={() => ppfRollImageInputRef.current?.click()}
-                        className="w-full"
+                        className="aspect-square flex flex-col items-center justify-center gap-2 border-dashed"
                         data-testid="button-ppf-roll-image"
                       >
-                        <Camera className="w-4 h-4 mr-2" /> Attach Roll Photo
+                        <Camera className="w-5 h-5" />
+                        <span className="text-xs">Add Photo</span>
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </div>
                 
