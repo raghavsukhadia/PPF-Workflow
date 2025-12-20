@@ -458,6 +458,9 @@ export default function JobCard() {
                         const stageIssues = issues?.filter(i => i.stageId === stage.id && i.status === 'open') || [];
                         const hasStageCriticalIssues = stageIssues.some(i => i.severity === 'critical');
                         const isViewing = viewingStageIndex === index;
+                        const isAllChecked = stage.checklist.every((item: any) => item.checked);
+                        const isPastStage = stage.id < job.currentStage;
+                        const effectiveStatus = (isPastStage && isAllChecked) ? 'completed' : stage.status;
                         return (
                           <div 
                             key={stage.id} 
@@ -471,13 +474,13 @@ export default function JobCard() {
                           >
                              <div className={cn(
                                 "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors relative",
-                                stage.status === 'completed' ? "border-green-500 text-green-500" :
+                                effectiveStatus === 'completed' ? "border-green-500 text-green-500" :
                                 hasStageCriticalIssues ? "border-red-500 text-red-500 bg-red-500/10" :
-                                stage.status === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
+                                effectiveStatus === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
                                 stageIssues.length > 0 ? "border-amber-500 text-amber-500" :
                                 "border-muted-foreground text-muted-foreground"
                              )}>
-                                {stage.status === 'completed' ? <CheckCircle2 className="w-5 h-5" /> : 
+                                {effectiveStatus === 'completed' ? <CheckCircle2 className="w-5 h-5" /> : 
                                  hasStageCriticalIssues ? <AlertTriangle className="w-4 h-4" /> :
                                  <span className="text-xs font-bold">{stage.id}</span>}
                                 {stageIssues.length > 0 && (
@@ -493,10 +496,10 @@ export default function JobCard() {
                                 )}>
                                    {stage.name}
                                 </h4>
-                                {stage.status === 'completed' && stage.completedAt && (
-                                   <p className="text-[10px] text-muted-foreground">Done: {format(new Date(stage.completedAt), 'MMM d, h:mm a')}</p>
+                                {effectiveStatus === 'completed' && (stage.completedAt || isPastStage) && (
+                                   <p className="text-[10px] text-muted-foreground">Done: {stage.completedAt ? format(new Date(stage.completedAt), 'MMM d, h:mm a') : 'Completed'}</p>
                                 )}
-                                {stage.status === 'in-progress' && !hasStageCriticalIssues && (
+                                {effectiveStatus === 'in-progress' && !hasStageCriticalIssues && (
                                    <Badge variant="secondary" className="mt-1 text-[10px] bg-primary/10 text-primary border-primary/20">In Progress</Badge>
                                 )}
                                 {hasStageCriticalIssues && (
