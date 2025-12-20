@@ -1255,10 +1255,14 @@ function StageDetailView({
             Report Issue
          </Button>
          {isCurrentStage ? (
-           stage.id === 11 && isJobCompleted && isAllChecked ? (
+           stage.id === 11 ? (
              <Button 
                 onClick={onMarkAsDelivered}
-                className="w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all bg-green-600 hover:bg-green-700 text-white shadow-green-500/20"
+                disabled={!isAllChecked}
+                className={cn(
+                   "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
+                   isAllChecked ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+                )}
                 data-testid="button-mark-delivered"
              >
                 <Flag className="w-4 h-4 mr-2" />
@@ -1274,7 +1278,7 @@ function StageDetailView({
                 )}
                 data-testid="button-complete-stage"
              >
-                {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}
+                Complete Stage
                 <ChevronRight className="w-4 h-4 ml-2" />
              </Button>
            )
