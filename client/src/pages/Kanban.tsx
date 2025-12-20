@@ -3,7 +3,6 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Car, Clock, MoreHorizontal, AlertCircle, Truck } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -103,21 +102,21 @@ export default function Kanban() {
   }
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col">
-      <div className="mb-4 sm:mb-6">
+    <div className="h-[calc(100vh-140px)] flex flex-col -mx-4 sm:mx-0">
+      <div className="mb-4 sm:mb-6 px-4 sm:px-0">
         <h2 className="text-2xl sm:text-3xl font-display font-bold">Kanban Board</h2>
-        <p className="text-muted-foreground text-sm sm:text-base">Shop Floor Overview</p>
+        <p className="text-muted-foreground text-sm sm:text-base">Shop Floor Overview - Swipe to see all stages</p>
       </div>
       
-      <ScrollArea className="flex-1 w-full pb-4">
-        <div className="flex gap-4 min-w-full pb-4 items-start">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 px-4 sm:px-0">
+        <div className="flex gap-3 sm:gap-4 pb-4 items-start" style={{ minWidth: 'max-content' }}>
           {COLUMNS.map(col => {
              const colJobs = getJobsForColumn(col.stages);
              return (
-               <div key={col.id} className="w-72 sm:w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden">
-                 <div className="p-4 border-b border-border/50 bg-secondary/50 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
-                   <h3 className="font-semibold text-sm uppercase tracking-wide">{col.title}</h3>
-                   <Badge variant="secondary" className="bg-background text-xs">{colJobs.length}</Badge>
+               <div key={col.id} className="w-64 sm:w-72 md:w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden">
+                 <div className="p-3 sm:p-4 border-b border-border/50 bg-secondary/50 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
+                   <h3 className="font-semibold text-xs sm:text-sm uppercase tracking-wide truncate pr-2">{col.title}</h3>
+                   <Badge variant="secondary" className="bg-background text-xs shrink-0">{colJobs.length}</Badge>
                  </div>
                  <div className="p-3 space-y-3">
                    {colJobs.map(job => (
@@ -179,8 +178,7 @@ export default function Kanban() {
           })}
 
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
     </div>
   );
 }
