@@ -136,13 +136,13 @@ export default function CreateJob() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/")} data-testid="button-back">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/")} className="min-w-[44px] min-h-[44px]" data-testid="button-back">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h2 className="text-3xl font-display font-bold">New Job Card</h2>
-          <p className="text-muted-foreground">Vehicle Inward & Customer Details</p>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold">New Job Card</h2>
+          <p className="text-muted-foreground text-sm sm:text-base">Vehicle Inward & Customer Details</p>
         </div>
       </div>
 

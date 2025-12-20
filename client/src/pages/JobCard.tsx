@@ -386,34 +386,34 @@ export default function JobCard() {
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/")} data-testid="button-back">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/")} className="min-w-[44px] min-h-[44px] shrink-0" data-testid="button-back">
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-display font-bold">{job.vehicle.brand} {job.vehicle.model}</h2>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-display font-bold truncate">{job.vehicle.brand} {job.vehicle.model}</h2>
               {openIssues.length > 0 && (
-                <Badge variant="destructive" className="text-xs uppercase tracking-wider animate-pulse">
-                  {openIssues.length} ISSUE{openIssues.length > 1 ? 'S' : ''} OPEN
+                <Badge variant="destructive" className="text-[10px] sm:text-xs uppercase tracking-wider animate-pulse shrink-0">
+                  {openIssues.length} ISSUE{openIssues.length > 1 ? 'S' : ''}
                 </Badge>
               )}
-              <Badge variant="outline" className="text-xs uppercase tracking-wider">
+              <Badge variant="outline" className="text-[10px] sm:text-xs uppercase tracking-wider shrink-0">
                 {job.status}
               </Badge>
             </div>
-            <p className="text-muted-foreground">{job.jobNo} • {job.package}</p>
+            <p className="text-muted-foreground text-sm sm:text-base truncate">{job.jobNo} • {job.package}</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-6">
-           <div className="flex items-center gap-2 px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                 <HardHat className="w-4 h-4" />
+        <div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0">
+           <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                 <HardHat className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <div>
-                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Assigned Installer</p>
-                 <p className="text-sm font-medium">{assignedUser ? assignedUser.name : "Unassigned"}</p>
+              <div className="min-w-0">
+                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Installer</p>
+                 <p className="text-xs sm:text-sm font-medium truncate">{assignedUser ? assignedUser.name : "Unassigned"}</p>
               </div>
            </div>
 
@@ -472,7 +472,7 @@ export default function JobCard() {
         </Card>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-8 h-full">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 h-full">
         <div className="lg:col-span-1 space-y-4">
           <Card className="glass-card border-border/50 h-full max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader>
@@ -1266,7 +1266,7 @@ function StageDetailView({
              <Button 
                 onClick={onMarkAsDelivered}
                 disabled={isBlocked}
-                className="w-full md:w-auto min-w-[200px] shadow-lg transition-all bg-green-600 hover:bg-green-700 text-white shadow-green-500/20"
+                className="w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all bg-green-600 hover:bg-green-700 text-white shadow-green-500/20"
                 data-testid="button-mark-delivered"
              >
                 <Flag className="w-4 h-4 mr-2" />
@@ -1277,7 +1277,7 @@ function StageDetailView({
                 onClick={() => onComplete(localChecklist)}
                 disabled={!isAllChecked || isBlocked || !ppfDetailsComplete}
                 className={cn(
-                   "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
+                   "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
                    (isAllChecked && !isBlocked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
                 )}
                 data-testid="button-complete-stage"
@@ -1290,7 +1290,7 @@ function StageDetailView({
            <Button 
               variant="secondary"
               onClick={onBackToCurrentStage}
-              className="w-full md:w-auto min-w-[200px]"
+              className="w-full md:w-auto min-w-[200px] min-h-[44px]"
               data-testid="button-back-to-current"
            >
               Back to Current Stage

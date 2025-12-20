@@ -43,13 +43,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold text-foreground" data-testid="text-dashboard-title">Dashboard</h2>
-          <p className="text-muted-foreground">Welcome back, {currentUser?.name}</p>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-foreground" data-testid="text-dashboard-title">Dashboard</h2>
+          <p className="text-muted-foreground text-sm sm:text-base">Welcome back, {currentUser?.name}</p>
         </div>
         <Link href="/create-job">
-          <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20" data-testid="button-create-job">
+          <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 w-full sm:w-auto min-h-[44px]" data-testid="button-create-job">
             <Plus className="w-4 h-4 mr-2" />
             New Job Card
           </Button>

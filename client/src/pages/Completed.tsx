@@ -76,15 +76,15 @@ export default function Completed() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
-            <CheckCircle2 className="w-8 h-8 text-green-500" />
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-foreground flex items-center gap-3">
+            <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
             Completed Jobs
           </h2>
-          <p className="text-muted-foreground">All delivered vehicles</p>
+          <p className="text-muted-foreground text-sm sm:text-base">All delivered vehicles</p>
         </div>
-        <Badge variant="secondary" className="bg-green-500/20 text-green-500 border-green-500/30 text-lg px-4 py-2">
+        <Badge variant="secondary" className="bg-green-500/20 text-green-500 border-green-500/30 text-base sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 w-fit">
           {deliveredJobs.length} Delivered
         </Badge>
       </div>

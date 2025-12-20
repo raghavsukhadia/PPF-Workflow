@@ -104,9 +104,9 @@ export default function Kanban() {
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col">
-      <div className="mb-6">
-        <h2 className="text-3xl font-display font-bold">Kanban Board</h2>
-        <p className="text-muted-foreground">Shop Floor Overview</p>
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-2xl sm:text-3xl font-display font-bold">Kanban Board</h2>
+        <p className="text-muted-foreground text-sm sm:text-base">Shop Floor Overview</p>
       </div>
       
       <ScrollArea className="flex-1 w-full pb-4">
@@ -114,7 +114,7 @@ export default function Kanban() {
           {COLUMNS.map(col => {
              const colJobs = getJobsForColumn(col.stages);
              return (
-               <div key={col.id} className="w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden">
+               <div key={col.id} className="w-72 sm:w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden">
                  <div className="p-4 border-b border-border/50 bg-secondary/50 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
                    <h3 className="font-semibold text-sm uppercase tracking-wide">{col.title}</h3>
                    <Badge variant="secondary" className="bg-background text-xs">{colJobs.length}</Badge>
