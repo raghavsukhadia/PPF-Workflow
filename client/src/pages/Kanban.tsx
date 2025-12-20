@@ -108,12 +108,12 @@ export default function Kanban() {
         <p className="text-muted-foreground text-sm sm:text-base">Shop Floor Overview - Swipe to see all stages</p>
       </div>
       
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 px-4 sm:px-0">
-        <div className="flex gap-3 sm:gap-4 pb-4 items-start" style={{ minWidth: 'max-content' }}>
+      <div className="flex-1 overflow-x-auto overflow-y-auto pb-4 px-4 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="inline-flex flex-nowrap gap-3 sm:gap-4 pb-4 items-start">
           {COLUMNS.map(col => {
              const colJobs = getJobsForColumn(col.stages);
              return (
-               <div key={col.id} className="w-64 sm:w-72 md:w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden">
+               <div key={col.id} className="flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden" style={{ width: '260px', minWidth: '260px', flexShrink: 0 }}>
                  <div className="p-3 sm:p-4 border-b border-border/50 bg-secondary/50 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
                    <h3 className="font-semibold text-xs sm:text-sm uppercase tracking-wide truncate pr-2">{col.title}</h3>
                    <Badge variant="secondary" className="bg-background text-xs shrink-0">{colJobs.length}</Badge>
