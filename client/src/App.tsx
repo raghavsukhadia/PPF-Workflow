@@ -11,6 +11,7 @@ import JobCard from "@/pages/JobCard";
 import Kanban from "@/pages/Kanban";
 import Login from "@/pages/Login";
 import Settings from "@/pages/Settings";
+import Completed from "@/pages/Completed";
 import { useAuth } from "@/lib/api";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -40,6 +41,7 @@ function Router() {
         <Route path="/create-job">{() => <ProtectedRoute component={CreateJob} />}</Route>
         <Route path="/jobs/:id">{() => <ProtectedRoute component={JobCard} />}</Route>
         <Route path="/kanban">{() => <ProtectedRoute component={Kanban} />}</Route>
+        <Route path="/completed">{() => <ProtectedRoute component={Completed} />}</Route>
         <Route path="/settings">{() => <ProtectedRoute component={Settings} />}</Route>
         <Route component={NotFound} />
       </Switch>

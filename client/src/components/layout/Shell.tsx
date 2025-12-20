@@ -7,7 +7,8 @@ import {
   Settings, 
   LogOut, 
   Menu,
-  Car
+  Car,
+  CheckCircle2
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth, useLogout } from "@/lib/api";
@@ -66,6 +67,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
         <NavItem href="/create-job" icon={PlusCircle} label="New Job Card" />
         <NavItem href="/kanban" icon={ClipboardList} label="Kanban Board" />
+        <NavItem href="/completed" icon={CheckCircle2} label="Completed" />
         <div className="h-4"></div>
         <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">System</div>
         <NavItem href="/settings" icon={Settings} label="Settings" />
