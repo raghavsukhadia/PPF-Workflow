@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Car, Clock, MoreHorizontal, AlertCircle, CheckCircle2, Truck } from "lucide-react";
+import { Car, Clock, MoreHorizontal, AlertCircle, Truck } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
@@ -93,7 +93,6 @@ export default function Kanban() {
     return jobs.filter(job => stageIds.includes(job.currentStage) && job.status !== 'delivered');
   };
 
-  const deliveredJobs = jobs.filter(job => job.status === 'delivered');
 
   if (isLoading) {
     return (
@@ -179,49 +178,6 @@ export default function Kanban() {
              )
           })}
 
-          {/* Delivered Section */}
-          <div className="w-80 shrink-0 flex flex-col bg-green-500/5 rounded-xl border border-green-500/20 overflow-hidden">
-            <div className="p-4 border-b border-green-500/20 bg-green-500/10 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                <h3 className="font-semibold text-sm uppercase tracking-wide text-green-500">Delivered</h3>
-              </div>
-              <Badge variant="secondary" className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">{deliveredJobs.length}</Badge>
-            </div>
-            <div className="p-3 space-y-3">
-              {deliveredJobs.map(job => (
-                <Link key={job.id} href={`/jobs/${job.id}`}>
-                  <Card className="cursor-pointer transition-all group bg-card border-green-500/20 hover:border-green-500/40 hover:shadow-md">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div className="font-display font-bold text-lg leading-tight">{job.vehicle.brand}<br/><span className="text-base font-normal text-muted-foreground">{job.vehicle.model}</span></div>
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      </div>
-                      
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
-                        <Car className="w-3 h-3" />
-                        <span className="truncate">{job.vehicle.regNo}</span>
-                      </div>
-
-                      <div className="flex justify-between items-end pt-2 border-t border-border/50">
-                        <Badge variant="outline" className="text-[10px] h-5 bg-green-500/10 text-green-500 border-green-500/20">
-                          DELIVERED
-                        </Badge>
-                        <div className="text-[10px] text-muted-foreground">
-                          {job.package}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-              {deliveredJobs.length === 0 && (
-                <div className="h-24 flex items-center justify-center text-xs text-muted-foreground border-2 border-dashed border-green-500/20 rounded-lg">
-                  No deliveries yet
-                </div>
-              )}
-            </div>
-          </div>
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
