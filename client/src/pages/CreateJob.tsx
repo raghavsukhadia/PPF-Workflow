@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { compressImage } from "@/lib/imageUtils";
 
 const formSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
@@ -47,14 +48,20 @@ export default function CreateJob() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, label: string) => {
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>, label: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setInwardPhotos(prev => ({ ...prev, [label]: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    
+    try {
+      const compressed = await compressImage(file, 800, 0.7);
+      setInwardPhotos(prev => ({ ...prev, [label]: compressed }));
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setInwardPhotos(prev => ({ ...prev, [label]: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
     e.target.value = '';
     setActivePhotoSlot(null);
   };

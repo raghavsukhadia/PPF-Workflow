@@ -34,9 +34,10 @@ import {
   Flag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Folder, CameraIcon, VideoIcon, MicIcon } from "lucide-react";
+import { compressImage, debounce } from "@/lib/imageUtils";
 
 const STAGE_NAMES: Record<number, string> = {
   1: "Vehicle Inward",
@@ -979,6 +980,11 @@ function StageDetailView({
   }, [stage.id]);
   
   const isAllChecked = localChecklist.every(item => item.checked);
+  
+  const debouncedUpdate = useCallback(
+    debounce((data: Partial<JobStage>) => onUpdate(data), 500),
+    [onUpdate]
+  );
   const stagePhotoInputRef = useRef<HTMLInputElement>(null);
   const stageCameraInputRef = useRef<HTMLInputElement>(null);
   const ppfRollImageInputRef = useRef<HTMLInputElement>(null);
@@ -1005,18 +1011,20 @@ function StageDetailView({
     setPpfDetailsSaved(true);
   };
   
-  const handlePpfRollImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePpfRollImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        setPpfRollImages(prev => [...prev, dataUrl]);
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImage(file, 800, 0.7);
+        setPpfRollImages(prev => [...prev, compressed]);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => setPpfRollImages(prev => [...prev, reader.result as string]);
+        reader.readAsDataURL(file);
+      }
+    }
     e.target.value = '';
   };
   
@@ -1029,22 +1037,27 @@ function StageDetailView({
       i === index ? { ...item, checked: !item.checked } : item
     );
     setLocalChecklist(newChecklist);
-    onUpdate({ checklist: newChecklist });
+    debouncedUpdate({ checklist: newChecklist });
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImage(file, 800, 0.7);
         const currentPhotos = stage.photos || [];
-        onUpdate({ photos: [...currentPhotos, dataUrl] });
-      };
-      reader.readAsDataURL(file);
-    });
+        onUpdate({ photos: [...currentPhotos, compressed] });
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const currentPhotos = stage.photos || [];
+          onUpdate({ photos: [...currentPhotos, reader.result as string] });
+        };
+        reader.readAsDataURL(file);
+      }
+    }
     e.target.value = '';
   };
 
