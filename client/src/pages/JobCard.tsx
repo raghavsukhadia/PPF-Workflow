@@ -1004,7 +1004,7 @@ function StageDetailView({
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="checklist" disabled={isPpfStage && !ppfDetailsComplete}>
-                    Checklist ({stage.checklist.filter(i => i.checked).length}/{stage.checklist.length})
+                    Checklist ({localChecklist.filter(i => i.checked).length}/{localChecklist.length})
                   </TabsTrigger>
                   <TabsTrigger value="photos">Photos & Notes</TabsTrigger>
                </TabsList>
