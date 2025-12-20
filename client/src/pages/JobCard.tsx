@@ -932,7 +932,6 @@ function StageDetailView({
   };
 
   const toggleCheck = (index: number) => {
-    if (isBlocked) return;
     const newChecklist = localChecklist.map((item, i) => 
       i === index ? { ...item, checked: !item.checked } : item
     );
@@ -982,7 +981,7 @@ function StageDetailView({
   return (
     <Card className={cn(
       "glass-card border-primary/20 shadow-lg shadow-primary/5 min-h-[500px] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500",
-      isBlocked && "border-destructive/30 shadow-destructive/5"
+      currentStageIssueCount > 0 && "border-amber-500/30 shadow-amber-500/5"
     )}>
       <CardHeader className="border-b border-border/50 bg-white/5 pb-4">
          <div className="flex items-center justify-between">
@@ -990,7 +989,6 @@ function StageDetailView({
                <p className={cn(
                  "text-sm font-medium mb-1",
                  !isCurrentStage ? "text-muted-foreground" :
-                 isBlocked ? "text-destructive" : 
                  currentStageIssueCount > 0 ? "text-amber-500" : "text-primary"
                )}>
                  {!isCurrentStage ? (
@@ -1002,7 +1000,7 @@ function StageDetailView({
                        </Button>
                      )}
                    </span>
-                 ) : isBlocked ? "STAGE BLOCKED - Critical Issue" : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
+                 ) : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
                </p>
                <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
             </div>
@@ -1013,7 +1011,6 @@ function StageDetailView({
                   <Select 
                     value={stage.assignedTo} 
                     onValueChange={(val) => onUpdate({ assignedTo: val })}
-                    disabled={isBlocked}
                   >
                     <SelectTrigger className="w-[180px] h-8 text-xs border-none bg-transparent focus:ring-0 px-0 justify-end font-medium text-foreground">
                       <SelectValue placeholder="Unassigned" />
@@ -1033,9 +1030,6 @@ function StageDetailView({
       </CardHeader>
 
       <CardContent className="flex-1 p-0 relative">
-         {isBlocked && (
-           <div className="absolute inset-0 bg-background/50 z-10 cursor-not-allowed" />
-         )}
          <Tabs key={`stage-${stage.id}`} defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
             <div className="px-6 py-2 border-b border-border/50">
                <TabsList className={cn("grid w-full", isPpfStage ? "max-w-[500px] grid-cols-3" : "max-w-[400px] grid-cols-2")}>
@@ -1255,7 +1249,6 @@ function StageDetailView({
            variant="outline" 
            className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20"
            onClick={onReportIssue}
-           disabled={isBlocked}
            data-testid="button-report-issue"
          >
             <AlertTriangle className="w-4 h-4 mr-2" />
@@ -1265,7 +1258,6 @@ function StageDetailView({
            stage.id === 11 && isJobCompleted ? (
              <Button 
                 onClick={onMarkAsDelivered}
-                disabled={isBlocked}
                 className="w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all bg-green-600 hover:bg-green-700 text-white shadow-green-500/20"
                 data-testid="button-mark-delivered"
              >
@@ -1275,10 +1267,10 @@ function StageDetailView({
            ) : (
              <Button 
                 onClick={() => onComplete(localChecklist)}
-                disabled={!isAllChecked || isBlocked || !ppfDetailsComplete}
+                disabled={!isAllChecked || !ppfDetailsComplete}
                 className={cn(
                    "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
-                   (isAllChecked && !isBlocked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+                   (isAllChecked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
                 )}
                 data-testid="button-complete-stage"
              >
