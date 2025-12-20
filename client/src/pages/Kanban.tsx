@@ -111,16 +111,16 @@ export default function Kanban() {
       </div>
       
       <ScrollArea className="flex-1 w-full pb-4">
-        <div className="flex gap-4 min-w-full pb-4">
+        <div className="flex gap-4 min-w-full pb-4 h-[calc(100vh-220px)]">
           {COLUMNS.map(col => {
              const colJobs = getJobsForColumn(col.stages);
              return (
-               <div key={col.id} className="w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden">
+               <div key={col.id} className="w-80 shrink-0 flex flex-col bg-secondary/30 rounded-xl border border-border/50 overflow-hidden h-full">
                  <div className="p-4 border-b border-border/50 bg-secondary/50 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
                    <h3 className="font-semibold text-sm uppercase tracking-wide">{col.title}</h3>
                    <Badge variant="secondary" className="bg-background text-xs">{colJobs.length}</Badge>
                  </div>
-                 <div className="p-3 space-y-3 flex-1 overflow-y-auto min-h-[200px]">
+                 <div className="p-3 space-y-3 flex-1 overflow-y-auto min-h-0">
                    {colJobs.map(job => (
                      <Link key={job.id} href={`/jobs/${job.id}`}>
                        <Card className={cn(
@@ -180,7 +180,7 @@ export default function Kanban() {
           })}
 
           {/* Delivered Section */}
-          <div className="w-80 shrink-0 flex flex-col bg-green-500/5 rounded-xl border border-green-500/20 overflow-hidden">
+          <div className="w-80 shrink-0 flex flex-col bg-green-500/5 rounded-xl border border-green-500/20 overflow-hidden h-full">
             <div className="p-4 border-b border-green-500/20 bg-green-500/10 flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -188,7 +188,7 @@ export default function Kanban() {
               </div>
               <Badge variant="secondary" className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">{deliveredJobs.length}</Badge>
             </div>
-            <div className="p-3 space-y-3 flex-1 overflow-y-auto min-h-[200px]">
+            <div className="p-3 space-y-3 flex-1 overflow-y-auto min-h-0">
               {deliveredJobs.map(job => (
                 <Link key={job.id} href={`/jobs/${job.id}`}>
                   <Card className="cursor-pointer transition-all group bg-card border-green-500/20 hover:border-green-500/40 hover:shadow-md">
