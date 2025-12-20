@@ -30,6 +30,13 @@ export type JobIssue = {
   resolvedAt?: string;
 };
 
+export type StageComment = {
+  id: string;
+  text: string;
+  author: string;
+  createdAt: string;
+};
+
 export type JobStage = {
   id: number;
   name: string;
@@ -38,7 +45,8 @@ export type JobStage = {
   completedAt?: string;
   assignedTo?: string; // User ID
   checklist: { item: string; checked: boolean }[];
-  notes?: string;
+  notes?: string; // Legacy - kept for backwards compatibility
+  comments?: StageComment[]; // New comment system
   photos: string[]; // URLs
 };
 

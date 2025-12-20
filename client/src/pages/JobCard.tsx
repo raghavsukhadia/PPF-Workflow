@@ -528,6 +528,7 @@ export default function JobCard() {
               onReportIssue={() => setIsIssueModalOpen(true)}
               isBlocked={hasCriticalIssues}
               currentStageIssueCount={currentStageOpenIssues.length}
+              currentUserName={authUser?.name || 'User'}
            />
         </div>
       </div>
@@ -776,7 +777,8 @@ function StageDetailView({
   teamMembers,
   onReportIssue,
   isBlocked,
-  currentStageIssueCount = 0
+  currentStageIssueCount = 0,
+  currentUserName = 'User'
 }: { 
   jobId: string; 
   stage: JobStage; 
@@ -786,10 +788,12 @@ function StageDetailView({
   onReportIssue: () => void;
   isBlocked: boolean;
   currentStageIssueCount?: number;
+  currentUserName?: string;
 }) {
   const isAllChecked = stage.checklist.every(item => item.checked);
   const stagePhotoInputRef = useRef<HTMLInputElement>(null);
   const stageCameraInputRef = useRef<HTMLInputElement>(null);
+  const [newComment, setNewComment] = useState('');
 
   const toggleCheck = (index: number) => {
     if (isBlocked) return;
@@ -817,6 +821,24 @@ function StageDetailView({
   const removePhoto = (index: number) => {
     const newPhotos = stage.photos.filter((_, i) => i !== index);
     onUpdate({ photos: newPhotos });
+  };
+
+  const addComment = () => {
+    if (!newComment.trim()) return;
+    const comment = {
+      id: `c-${Date.now()}`,
+      text: newComment.trim(),
+      author: currentUserName,
+      createdAt: new Date().toISOString()
+    };
+    const currentComments = stage.comments || [];
+    onUpdate({ comments: [...currentComments, comment] });
+    setNewComment('');
+  };
+
+  const removeComment = (commentId: string) => {
+    const newComments = (stage.comments || []).filter(c => c.id !== commentId);
+    onUpdate({ comments: newComments });
   };
 
   return (
@@ -929,15 +951,58 @@ function StageDetailView({
                   </div>
                </div>
 
-               <div className="space-y-2">
-                  <Label className="flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes & Observations</Label>
-                  <Textarea 
-                     placeholder="Add detailed notes about this stage..." 
-                     className="bg-secondary/50 border-border min-h-[100px]"
-                     value={stage.notes || ''}
-                     onChange={(e) => onUpdate({ notes: e.target.value })}
-                     data-testid="input-stage-notes"
-                  />
+               <div className="space-y-3">
+                  <Label className="flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes & Comments ({(stage.comments || []).length})</Label>
+                  
+                  {(stage.comments || []).length > 0 && (
+                    <ScrollArea className="max-h-[150px] pr-2">
+                      <div className="space-y-2">
+                        {(stage.comments || []).map((comment) => (
+                          <div key={comment.id} className="bg-secondary/50 rounded-lg p-3 group relative">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="text-sm">{comment.text}</p>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  {comment.author} • {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+                                </p>
+                              </div>
+                              <button 
+                                onClick={() => removeComment(comment.id)}
+                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    <Textarea 
+                       placeholder="Add a comment..." 
+                       className="bg-secondary/50 border-border min-h-[60px] flex-1"
+                       value={newComment}
+                       onChange={(e) => setNewComment(e.target.value)}
+                       onKeyDown={(e) => {
+                         if (e.key === 'Enter' && !e.shiftKey) {
+                           e.preventDefault();
+                           addComment();
+                         }
+                       }}
+                       data-testid="input-stage-comment"
+                    />
+                  </div>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    onClick={addComment}
+                    disabled={!newComment.trim()}
+                    data-testid="button-add-comment"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add Comment
+                  </Button>
                </div>
             </TabsContent>
          </Tabs>
