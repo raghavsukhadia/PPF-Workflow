@@ -30,7 +30,8 @@ import {
   X,
   Plus,
   MapPin,
-  CheckCircle
+  CheckCircle,
+  Flag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useRef, useEffect } from "react";
@@ -348,6 +349,40 @@ export default function JobCard() {
     return SEVERITY_LEVELS.find(s => s.value === severity)?.color || "bg-gray-500";
   };
 
+  const markAsDelivered = () => {
+    const updatedStages = [...job.stages];
+    updatedStages[10] = {
+      ...updatedStages[10],
+      status: 'completed',
+      completedAt: new Date().toISOString()
+    };
+    
+    updateJob.mutate(
+      {
+        id: job.id,
+        data: {
+          status: 'delivered',
+          stages: JSON.stringify(updatedStages)
+        }
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Vehicle Delivered",
+            description: "The job has been marked as delivered."
+          });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message
+          });
+        }
+      }
+    );
+  };
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -567,6 +602,8 @@ export default function JobCard() {
                   currentUserName={authUser?.name || 'User'}
                   isCurrentStage={isCurrentStage}
                   onBackToCurrentStage={() => setViewingStageIndex(null)}
+                  onMarkAsDelivered={markAsDelivered}
+                  isJobCompleted={job.status === 'completed'}
                />
              );
            })()}
@@ -824,7 +861,9 @@ function StageDetailView({
   currentStageIssueCount = 0,
   currentUserName = 'User',
   isCurrentStage = true,
-  onBackToCurrentStage
+  onBackToCurrentStage,
+  onMarkAsDelivered,
+  isJobCompleted = false
 }: { 
   jobId: string; 
   stage: JobStage; 
@@ -837,6 +876,8 @@ function StageDetailView({
   currentUserName?: string;
   isCurrentStage?: boolean;
   onBackToCurrentStage?: () => void;
+  onMarkAsDelivered?: () => void;
+  isJobCompleted?: boolean;
 }) {
   const [localChecklist, setLocalChecklist] = useState(stage.checklist);
   
@@ -1221,18 +1262,30 @@ function StageDetailView({
             Report Issue
          </Button>
          {isCurrentStage ? (
-           <Button 
-              onClick={() => onComplete(localChecklist)}
-              disabled={!isAllChecked || isBlocked || !ppfDetailsComplete}
-              className={cn(
-                 "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
-                 (isAllChecked && !isBlocked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
-              )}
-              data-testid="button-complete-stage"
-           >
-              {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}
-              <ChevronRight className="w-4 h-4 ml-2" />
-           </Button>
+           stage.id === 11 && isJobCompleted ? (
+             <Button 
+                onClick={onMarkAsDelivered}
+                disabled={isBlocked}
+                className="w-full md:w-auto min-w-[200px] shadow-lg transition-all bg-green-600 hover:bg-green-700 text-white shadow-green-500/20"
+                data-testid="button-mark-delivered"
+             >
+                <Flag className="w-4 h-4 mr-2" />
+                Mark as Delivered
+             </Button>
+           ) : (
+             <Button 
+                onClick={() => onComplete(localChecklist)}
+                disabled={!isAllChecked || isBlocked || !ppfDetailsComplete}
+                className={cn(
+                   "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
+                   (isAllChecked && !isBlocked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+                )}
+                data-testid="button-complete-stage"
+             >
+                {stage.id === 11 ? 'Complete Job' : 'Complete Stage'}
+                <ChevronRight className="w-4 h-4 ml-2" />
+             </Button>
+           )
          ) : (
            <Button 
               variant="secondary"
