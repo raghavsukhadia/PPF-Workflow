@@ -28,11 +28,19 @@ export default function Kanban() {
     e.preventDefault();
     e.stopPropagation();
     
+    const updatedStages = [...job.stages];
+    updatedStages[10] = {
+      ...updatedStages[10],
+      status: 'completed',
+      completedAt: new Date().toISOString()
+    };
+    
     updateJob.mutate(
       {
         id: job.id,
         data: {
-          status: 'delivered'
+          status: 'delivered',
+          stages: JSON.stringify(updatedStages)
         }
       },
       {
