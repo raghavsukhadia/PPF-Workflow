@@ -5,7 +5,14 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcrypt";
-import { insertJobSchema, insertServicePackageSchema, insertUserSchema } from "@shared/schema";
+import { insertJobSchema, insertServicePackageSchema, insertUserSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema } from "@shared/schema";
+import { z } from "zod";
+
+const updatePpfRollSchema = z.object({
+  status: z.enum(["active", "depleted", "disposed"]).optional(),
+  batchNo: z.string().optional(),
+  imageUrl: z.string().optional(),
+}).strict();
 
 declare module "express-session" {
   interface SessionData {
@@ -214,6 +221,109 @@ export async function registerRoutes(
       res.json({ message: "Package deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete package" });
+    }
+  });
+
+  // PPF Products Routes
+  app.get("/api/ppf-products", isAuthenticated, async (req, res) => {
+    try {
+      const products = await storage.getAllPpfProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch PPF products" });
+    }
+  });
+
+  app.post("/api/ppf-products", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPpfProductSchema.parse(req.body);
+      const product = await storage.createPpfProduct(validatedData);
+      res.status(201).json(product);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create PPF product" });
+    }
+  });
+
+  app.delete("/api/ppf-products/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePpfProduct(req.params.id);
+      res.json({ message: "PPF product deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete PPF product" });
+    }
+  });
+
+  // PPF Rolls Routes
+  app.get("/api/ppf-rolls", isAuthenticated, async (req, res) => {
+    try {
+      const rolls = await storage.getAllPpfRolls();
+      res.json(rolls);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch PPF rolls" });
+    }
+  });
+
+  app.post("/api/ppf-rolls", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPpfRollSchema.parse(req.body);
+      const roll = await storage.createPpfRoll(validatedData);
+      res.status(201).json(roll);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create PPF roll" });
+    }
+  });
+
+  app.patch("/api/ppf-rolls/:id", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = updatePpfRollSchema.parse(req.body);
+      const roll = await storage.updatePpfRoll(req.params.id, validatedData);
+      if (!roll) {
+        return res.status(404).json({ message: "PPF roll not found" });
+      }
+      res.json(roll);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to update PPF roll" });
+    }
+  });
+
+  app.delete("/api/ppf-rolls/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePpfRoll(req.params.id);
+      res.json({ message: "PPF roll deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete PPF roll" });
+    }
+  });
+
+  // Job PPF Usage Routes
+  app.get("/api/jobs/:id/ppf-usage", isAuthenticated, async (req, res) => {
+    try {
+      const usage = await storage.getJobPpfUsage(req.params.id);
+      res.json(usage);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch PPF usage" });
+    }
+  });
+
+  app.post("/api/jobs/:id/ppf-usage", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertJobPpfUsageSchema.parse({
+        ...req.body,
+        jobId: req.params.id
+      });
+      const usage = await storage.createJobPpfUsage(validatedData);
+      res.status(201).json(usage);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create PPF usage" });
+    }
+  });
+
+  app.delete("/api/ppf-usage/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteJobPpfUsage(req.params.id);
+      res.json({ message: "PPF usage deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete PPF usage" });
     }
   });
 

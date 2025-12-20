@@ -35,6 +35,38 @@ export interface ApiServicePackage {
   createdAt: string;
 }
 
+export interface ApiPpfProduct {
+  id: string;
+  name: string;
+  brand: string;
+  type: string;
+  widthMm: number;
+  createdAt: string;
+}
+
+export interface ApiPpfRoll {
+  id: string;
+  rollId: string;
+  productId: string;
+  batchNo: string | null;
+  totalLengthMm: number;
+  usedLengthMm: number;
+  status: string;
+  imageUrl: string | null;
+  createdAt: string;
+}
+
+export interface ApiJobPpfUsage {
+  id: string;
+  jobId: string;
+  panelName: string;
+  rollId: string;
+  lengthUsedMm: number;
+  notes: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+}
+
 async function fetcher(url: string, options?: RequestInit) {
   const response = await fetch(url, {
     ...options,
@@ -186,6 +218,108 @@ export function useDeleteServicePackage() {
     mutationFn: (id: string) => fetcher(`/api/packages/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
+    },
+  });
+}
+
+// PPF Products Hooks
+export function usePpfProducts() {
+  return useQuery<ApiPpfProduct[]>({
+    queryKey: ["/api/ppf-products"],
+    queryFn: () => fetcher("/api/ppf-products"),
+  });
+}
+
+export function useCreatePpfProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; brand: string; type: string; widthMm: number }) => 
+      fetcher("/api/ppf-products", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-products"] });
+    },
+  });
+}
+
+export function useDeletePpfProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetcher(`/api/ppf-products/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-products"] });
+    },
+  });
+}
+
+// PPF Rolls Hooks
+export function usePpfRolls() {
+  return useQuery<ApiPpfRoll[]>({
+    queryKey: ["/api/ppf-rolls"],
+    queryFn: () => fetcher("/api/ppf-rolls"),
+  });
+}
+
+export function useCreatePpfRoll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { rollId: string; productId: string; batchNo?: string; totalLengthMm: number; status: string; imageUrl?: string }) => 
+      fetcher("/api/ppf-rolls", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-rolls"] });
+    },
+  });
+}
+
+export function useUpdatePpfRoll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<ApiPpfRoll> }) =>
+      fetcher(`/api/ppf-rolls/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-rolls"] });
+    },
+  });
+}
+
+export function useDeletePpfRoll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetcher(`/api/ppf-rolls/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-rolls"] });
+    },
+  });
+}
+
+// Job PPF Usage Hooks
+export function useJobPpfUsage(jobId: string | undefined) {
+  return useQuery<ApiJobPpfUsage[]>({
+    queryKey: ["/api/jobs", jobId, "ppf-usage"],
+    queryFn: () => fetcher(`/api/jobs/${jobId}/ppf-usage`),
+    enabled: !!jobId,
+  });
+}
+
+export function useCreateJobPpfUsage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, data }: { jobId: string; data: { panelName: string; rollId: string; lengthUsedMm: number; notes?: string; imageUrl?: string } }) =>
+      fetcher(`/api/jobs/${jobId}/ppf-usage`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.jobId, "ppf-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-rolls"] });
     },
   });
 }

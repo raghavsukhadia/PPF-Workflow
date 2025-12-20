@@ -2,12 +2,21 @@ import {
   users, 
   jobs,
   servicePackages,
+  ppfProducts,
+  ppfRolls,
+  jobPpfUsage,
   type User, 
   type InsertUser,
   type Job,
   type InsertJob,
   type ServicePackage,
-  type InsertServicePackage
+  type InsertServicePackage,
+  type PpfProduct,
+  type InsertPpfProduct,
+  type PpfRoll,
+  type InsertPpfRoll,
+  type JobPpfUsage,
+  type InsertJobPpfUsage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -28,6 +37,22 @@ export interface IStorage {
   getAllServicePackages(): Promise<ServicePackage[]>;
   createServicePackage(pkg: InsertServicePackage): Promise<ServicePackage>;
   deleteServicePackage(id: string): Promise<void>;
+
+  getAllPpfProducts(): Promise<PpfProduct[]>;
+  getPpfProduct(id: string): Promise<PpfProduct | undefined>;
+  createPpfProduct(product: InsertPpfProduct): Promise<PpfProduct>;
+  deletePpfProduct(id: string): Promise<void>;
+
+  getAllPpfRolls(): Promise<PpfRoll[]>;
+  getPpfRoll(id: string): Promise<PpfRoll | undefined>;
+  createPpfRoll(roll: InsertPpfRoll): Promise<PpfRoll>;
+  updatePpfRoll(id: string, data: Partial<PpfRoll>): Promise<PpfRoll | undefined>;
+  deletePpfRoll(id: string): Promise<void>;
+
+  getJobPpfUsage(jobId: string): Promise<JobPpfUsage[]>;
+  getJobPpfUsageById(id: string): Promise<JobPpfUsage | undefined>;
+  createJobPpfUsage(usage: InsertJobPpfUsage): Promise<JobPpfUsage>;
+  deleteJobPpfUsage(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -102,6 +127,102 @@ export class DatabaseStorage implements IStorage {
 
   async deleteServicePackage(id: string): Promise<void> {
     await db.delete(servicePackages).where(eq(servicePackages.id, id));
+  }
+
+  async getAllPpfProducts(): Promise<PpfProduct[]> {
+    return await db.select().from(ppfProducts).orderBy(desc(ppfProducts.createdAt));
+  }
+
+  async getPpfProduct(id: string): Promise<PpfProduct | undefined> {
+    const [product] = await db.select().from(ppfProducts).where(eq(ppfProducts.id, id));
+    return product || undefined;
+  }
+
+  async createPpfProduct(insertProduct: InsertPpfProduct): Promise<PpfProduct> {
+    const [product] = await db
+      .insert(ppfProducts)
+      .values(insertProduct)
+      .returning();
+    return product;
+  }
+
+  async deletePpfProduct(id: string): Promise<void> {
+    await db.delete(ppfProducts).where(eq(ppfProducts.id, id));
+  }
+
+  async getAllPpfRolls(): Promise<PpfRoll[]> {
+    return await db.select().from(ppfRolls).orderBy(desc(ppfRolls.createdAt));
+  }
+
+  async getPpfRoll(id: string): Promise<PpfRoll | undefined> {
+    const [roll] = await db.select().from(ppfRolls).where(eq(ppfRolls.id, id));
+    return roll || undefined;
+  }
+
+  async createPpfRoll(insertRoll: InsertPpfRoll): Promise<PpfRoll> {
+    const [roll] = await db
+      .insert(ppfRolls)
+      .values(insertRoll)
+      .returning();
+    return roll;
+  }
+
+  async updatePpfRoll(id: string, data: Partial<PpfRoll>): Promise<PpfRoll | undefined> {
+    const [roll] = await db
+      .update(ppfRolls)
+      .set(data)
+      .where(eq(ppfRolls.id, id))
+      .returning();
+    return roll || undefined;
+  }
+
+  async deletePpfRoll(id: string): Promise<void> {
+    await db.delete(ppfRolls).where(eq(ppfRolls.id, id));
+  }
+
+  async getJobPpfUsage(jobId: string): Promise<JobPpfUsage[]> {
+    return await db.select().from(jobPpfUsage).where(eq(jobPpfUsage.jobId, jobId));
+  }
+
+  async getJobPpfUsageById(id: string): Promise<JobPpfUsage | undefined> {
+    const [usage] = await db.select().from(jobPpfUsage).where(eq(jobPpfUsage.id, id));
+    return usage || undefined;
+  }
+
+  async createJobPpfUsage(insertUsage: InsertJobPpfUsage): Promise<JobPpfUsage> {
+    const roll = await this.getPpfRoll(insertUsage.rollId);
+    if (!roll) {
+      throw new Error("Roll not found");
+    }
+    
+    const remainingLength = roll.totalLengthMm - roll.usedLengthMm;
+    if (insertUsage.lengthUsedMm > remainingLength) {
+      throw new Error(`Insufficient roll length. Available: ${remainingLength}mm, Requested: ${insertUsage.lengthUsedMm}mm`);
+    }
+
+    const [usage] = await db
+      .insert(jobPpfUsage)
+      .values(insertUsage)
+      .returning();
+    
+    await this.updatePpfRoll(roll.id, {
+      usedLengthMm: roll.usedLengthMm + insertUsage.lengthUsedMm
+    });
+    
+    return usage;
+  }
+
+  async deleteJobPpfUsage(id: string): Promise<void> {
+    const usage = await this.getJobPpfUsageById(id);
+    if (usage) {
+      const roll = await this.getPpfRoll(usage.rollId);
+      if (roll) {
+        await this.updatePpfRoll(roll.id, {
+          usedLengthMm: Math.max(0, roll.usedLengthMm - usage.lengthUsedMm)
+        });
+      }
+    }
+    await db.delete(jobPpfUsage).where(eq(jobPpfUsage.id, id));
   }
 }
 

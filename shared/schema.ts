@@ -62,3 +62,63 @@ export const insertServicePackageSchema = createInsertSchema(servicePackages).om
 
 export type InsertServicePackage = z.infer<typeof insertServicePackageSchema>;
 export type ServicePackage = typeof servicePackages.$inferSelect;
+
+// PPF Products - master data for PPF brands/types
+export const ppfProducts = pgTable("ppf_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  brand: text("brand").notNull(),
+  type: text("type").notNull(), // e.g., "Clear", "Matte", "Colored"
+  widthMm: integer("width_mm").notNull().default(1520), // Roll width in mm
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPpfProductSchema = createInsertSchema(ppfProducts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPpfProduct = z.infer<typeof insertPpfProductSchema>;
+export type PpfProduct = typeof ppfProducts.$inferSelect;
+
+// PPF Rolls - inventory tracking
+export const ppfRolls = pgTable("ppf_rolls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rollId: text("roll_id").notNull().unique(), // Human-readable roll ID (e.g., "XPEL-001")
+  productId: varchar("product_id").notNull(),
+  batchNo: text("batch_no"),
+  totalLengthMm: integer("total_length_mm").notNull(), // Total length in mm
+  usedLengthMm: integer("used_length_mm").notNull().default(0), // Used length in mm
+  status: text("status").notNull().default('active'), // active, depleted, disposed
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPpfRollSchema = createInsertSchema(ppfRolls).omit({
+  id: true,
+  createdAt: true,
+  usedLengthMm: true,
+});
+
+export type InsertPpfRoll = z.infer<typeof insertPpfRollSchema>;
+export type PpfRoll = typeof ppfRolls.$inferSelect;
+
+// Job PPF Usage - tracks which rolls were used on which job/panel
+export const jobPpfUsage = pgTable("job_ppf_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull(),
+  panelName: text("panel_name").notNull(), // e.g., "Hood", "Front Bumper", "Left Fender"
+  rollId: varchar("roll_id").notNull(),
+  lengthUsedMm: integer("length_used_mm").notNull(),
+  notes: text("notes"),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertJobPpfUsageSchema = createInsertSchema(jobPpfUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertJobPpfUsage = z.infer<typeof insertJobPpfUsageSchema>;
+export type JobPpfUsage = typeof jobPpfUsage.$inferSelect;
