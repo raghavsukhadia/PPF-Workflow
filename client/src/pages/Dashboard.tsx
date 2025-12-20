@@ -24,11 +24,12 @@ export default function Dashboard() {
   const deliveredJobs = jobs.filter(j => j.status === 'delivered');
   const pendingCount = activeJobs.length;
   const issuesCount = jobs.filter(j => j.activeIssue).length;
+  const pendingDeliveryCount = activeJobs.filter(j => j.currentStage === 11).length;
   
   const stats = [
     { label: 'Active Jobs', value: pendingCount, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { label: 'Delivered (Mtd)', value: deliveredJobs.length + 12, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
-    { label: 'Pending Delivery', value: activeJobs.filter(j => j.currentStage === 11).length, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { label: 'Delivered (Mtd)', value: deliveredJobs.length, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
+    { label: 'Pending Delivery', value: pendingDeliveryCount, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { label: 'Issues', value: issuesCount, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
   ];
 
@@ -97,35 +98,38 @@ export default function Dashboard() {
           <Card className="bg-card/50 border-border/50 h-full min-h-[300px]">
             <CardContent className="p-6">
                <div className="space-y-6">
-                  <div className="flex gap-4">
-                     <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
-                        <div className="w-0.5 h-full bg-border mt-1"></div>
-                     </div>
-                     <div>
-                        <p className="text-sm font-medium">Delivery: Porsche 911</p>
-                        <p className="text-xs text-muted-foreground">10:00 AM • Pending QC</p>
-                     </div>
-                  </div>
-                  <div className="flex gap-4">
-                     <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 rounded-full bg-amber-500 mt-2"></div>
-                        <div className="w-0.5 h-full bg-border mt-1"></div>
-                     </div>
-                     <div>
-                        <p className="text-sm font-medium">Inward: BMW X5</p>
-                        <p className="text-xs text-muted-foreground">11:30 AM • Assigned to Sameer</p>
-                     </div>
-                  </div>
-                  <div className="flex gap-4">
-                     <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground mt-2"></div>
-                     </div>
-                     <div>
-                        <p className="text-sm font-medium">Team Meeting</p>
-                        <p className="text-xs text-muted-foreground">09:00 AM • Completed</p>
-                     </div>
-                  </div>
+                  {activeJobs.slice(0, 5).map((job, index) => {
+                    const stages = typeof job.stages === 'string' ? JSON.parse(job.stages) : job.stages;
+                    const currentStageName = stages.find((s: any) => s.id === job.currentStage)?.name || 'Unknown';
+                    const isLast = index === Math.min(activeJobs.length - 1, 4);
+                    const hasIssue = !!job.activeIssue;
+                    
+                    return (
+                      <Link key={job.id} href={`/jobs/${job.id}`}>
+                        <div className="flex gap-4 cursor-pointer hover:opacity-80">
+                          <div className="flex flex-col items-center">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full mt-2",
+                              hasIssue ? "bg-red-500" : job.currentStage === 11 ? "bg-green-500" : "bg-primary"
+                            )}></div>
+                            {!isLast && <div className="w-0.5 h-full bg-border mt-1"></div>}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{job.vehicleBrand} {job.vehicleModel}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Stage {job.currentStage} • {currentStageName}
+                              {hasIssue && <span className="text-red-500 ml-1">• Issue</span>}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  {activeJobs.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      No scheduled jobs today.
+                    </div>
+                  )}
                </div>
             </CardContent>
           </Card>
