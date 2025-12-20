@@ -1,13 +1,28 @@
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Car, CheckCircle2, Calendar, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Car, CheckCircle2, Calendar, Package, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { useJobs } from "@/lib/api";
-import { useMemo } from "react";
+import { useJobs, useDeleteJob } from "@/lib/api";
+import { useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Completed() {
   const { data: apiJobs = [], isLoading } = useJobs();
+  const deleteJobMutation = useDeleteJob();
+  const { toast } = useToast();
+  const [jobToDelete, setJobToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const deliveredJobs = useMemo(() => {
     return apiJobs
@@ -23,6 +38,33 @@ export default function Completed() {
         }
       }));
   }, [apiJobs]);
+
+  const handleDeleteClick = (e: React.MouseEvent, job: { id: string; vehicle: { brand: string; model: string } }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJobToDelete({ id: job.id, name: `${job.vehicle.brand} ${job.vehicle.model}` });
+  };
+
+  const confirmDelete = () => {
+    if (!jobToDelete) return;
+    
+    deleteJobMutation.mutate(jobToDelete.id, {
+      onSuccess: () => {
+        toast({
+          title: "Job Deleted",
+          description: `${jobToDelete.name} has been permanently deleted.`
+        });
+        setJobToDelete(null);
+      },
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message
+        });
+      }
+    });
+  };
 
   if (isLoading) {
     return (
@@ -50,7 +92,7 @@ export default function Completed() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {deliveredJobs.map(job => (
           <Link key={job.id} href={`/jobs/${job.id}`}>
-            <Card className="cursor-pointer transition-all group bg-card border-green-500/20 hover:border-green-500/40 hover:shadow-lg" data-testid={`card-completed-job-${job.id}`}>
+            <Card className="cursor-pointer transition-all group bg-card border-green-500/20 hover:border-green-500/40 hover:shadow-lg relative" data-testid={`card-completed-job-${job.id}`}>
               <CardContent className="p-5 space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start gap-3">
@@ -62,7 +104,18 @@ export default function Completed() {
                       <p className="text-sm text-muted-foreground">{job.vehicle.year} • {job.vehicle.color}</p>
                     </div>
                   </div>
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => handleDeleteClick(e, job)}
+                      data-testid={`button-delete-job-${job.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 p-3 rounded-lg">
@@ -97,6 +150,27 @@ export default function Completed() {
           <p className="text-sm text-muted-foreground mt-1">Delivered vehicles will appear here</p>
         </div>
       )}
+
+      <AlertDialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the job for "{jobToDelete?.name}". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-delete-cancel">No</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="button-delete-confirm"
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -179,6 +179,16 @@ export function useUpdateJob() {
   });
 }
 
+export function useDeleteJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetcher(`/api/jobs/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+    },
+  });
+}
+
 export function useUsers() {
   return useQuery<ApiUser[]>({
     queryKey: ["/api/users"],
