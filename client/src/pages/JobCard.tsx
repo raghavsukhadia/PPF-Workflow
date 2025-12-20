@@ -788,12 +788,35 @@ function StageDetailView({
   currentStageIssueCount?: number;
 }) {
   const isAllChecked = stage.checklist.every(item => item.checked);
+  const stagePhotoInputRef = useRef<HTMLInputElement>(null);
+  const stageCameraInputRef = useRef<HTMLInputElement>(null);
 
   const toggleCheck = (index: number) => {
     if (isBlocked) return;
     const newChecklist = [...stage.checklist];
     newChecklist[index].checked = !newChecklist[index].checked;
     onUpdate({ checklist: newChecklist });
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const currentPhotos = stage.photos || [];
+        onUpdate({ photos: [...currentPhotos, dataUrl] });
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removePhoto = (index: number) => {
+    const newPhotos = stage.photos.filter((_, i) => i !== index);
+    onUpdate({ photos: newPhotos });
   };
 
   return (
@@ -867,16 +890,42 @@ function StageDetailView({
             </TabsContent>
             
             <TabsContent value="photos" className="flex-1 p-6 space-y-6">
+               <input type="file" ref={stagePhotoInputRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} multiple />
+               <input type="file" ref={stageCameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
+               
                <div>
-                  <Label className="mb-2 block flex items-center gap-2"><Camera className="w-4 h-4" /> Stage Photos</Label>
+                  <Label className="mb-2 block flex items-center gap-2"><Camera className="w-4 h-4" /> Stage Photos ({stage.photos?.length || 0})</Label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                     {stage.photos.map((photo, i) => (
-                        <div key={i} className="aspect-square rounded-lg bg-secondary border border-border"></div>
+                     {(stage.photos || []).map((photo, i) => (
+                        <div key={i} className="relative aspect-square rounded-lg bg-secondary border border-border overflow-hidden group">
+                           <img src={photo} alt={`Stage photo ${i + 1}`} className="w-full h-full object-cover" />
+                           <button 
+                              onClick={() => removePhoto(i)}
+                              className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                           >
+                              <X className="w-4 h-4 text-white" />
+                           </button>
+                        </div>
                      ))}
-                     <button className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors">
-                        <Camera className="w-6 h-6" />
-                        <span className="text-xs font-medium">Add Photo</span>
-                     </button>
+                     <div className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2">
+                        <div className="flex gap-2">
+                           <button 
+                              onClick={() => stageCameraInputRef.current?.click()}
+                              className="p-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                              data-testid="button-stage-camera"
+                           >
+                              <Camera className="w-5 h-5" />
+                           </button>
+                           <button 
+                              onClick={() => stagePhotoInputRef.current?.click()}
+                              className="p-3 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                              data-testid="button-stage-files"
+                           >
+                              <Folder className="w-5 h-5" />
+                           </button>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">Camera / Files</span>
+                     </div>
                   </div>
                </div>
 
@@ -887,6 +936,7 @@ function StageDetailView({
                      className="bg-secondary/50 border-border min-h-[100px]"
                      value={stage.notes || ''}
                      onChange={(e) => onUpdate({ notes: e.target.value })}
+                     data-testid="input-stage-notes"
                   />
                </div>
             </TabsContent>
