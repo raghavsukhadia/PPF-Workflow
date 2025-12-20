@@ -33,8 +33,9 @@ import {
   CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Folder, CameraIcon, VideoIcon, MicIcon } from "lucide-react";
 
 const STAGE_NAMES: Record<number, string> = {
   1: "Vehicle Inward",
@@ -84,7 +85,34 @@ export default function JobCard() {
   const [issueLocation, setIssueLocation] = useState("");
   const [issueSeverity, setIssueSeverity] = useState("medium");
   const [issueMediaUrls, setIssueMediaUrls] = useState<string[]>([]);
+  const [issueMediaFiles, setIssueMediaFiles] = useState<{ name: string; type: string; dataUrl: string }[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<ApiJobIssue | null>(null);
+  
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const videoCameraInputRef = useRef<HTMLInputElement>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const audioRecordInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setIssueMediaFiles(prev => [...prev, { 
+          name: file.name, 
+          type: mediaType,
+          dataUrl 
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
 
   const job = useMemo(() => {
     if (!apiJob) return null;
@@ -151,6 +179,11 @@ export default function JobCard() {
       return;
     }
 
+    const allMediaUrls = [
+      ...issueMediaUrls,
+      ...issueMediaFiles.map(f => f.dataUrl)
+    ];
+
     createIssue.mutate(
       {
         jobId: job.id,
@@ -160,7 +193,7 @@ export default function JobCard() {
           description: issueDescription.trim(),
           location: issueLocation.trim() || undefined,
           severity: issueSeverity,
-          mediaUrls: issueMediaUrls.length > 0 ? issueMediaUrls : undefined
+          mediaUrls: allMediaUrls.length > 0 ? allMediaUrls : undefined
         }
       },
       {
@@ -218,6 +251,7 @@ export default function JobCard() {
     setIssueLocation("");
     setIssueSeverity("medium");
     setIssueMediaUrls([]);
+    setIssueMediaFiles([]);
   };
 
   const moveJobStage = (direction: 'next' | 'prev') => {
@@ -565,53 +599,87 @@ export default function JobCard() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Attach Media (Photos, Videos, Audio)</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <button 
-                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
-                  onClick={() => {
-                    const url = prompt("Enter image URL:");
-                    if (url) setIssueMediaUrls([...issueMediaUrls, url]);
-                  }}
-                  data-testid="button-add-image"
-                >
-                  <Image className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">Photo</span>
-                </button>
-                <button 
-                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
-                  onClick={() => {
-                    const url = prompt("Enter video URL:");
-                    if (url) setIssueMediaUrls([...issueMediaUrls, url]);
-                  }}
-                  data-testid="button-add-video"
-                >
-                  <Video className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">Video</span>
-                </button>
-                <button 
-                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
-                  onClick={() => {
-                    const url = prompt("Enter audio URL:");
-                    if (url) setIssueMediaUrls([...issueMediaUrls, url]);
-                  }}
-                  data-testid="button-add-audio"
-                >
-                  <Mic className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">Audio</span>
-                </button>
+            <div className="space-y-3">
+              <Label>Attach Media</Label>
+              
+              <input type="file" ref={photoFileInputRef} accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, 'photo')} multiple />
+              <input type="file" ref={cameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'photo')} />
+              <input type="file" ref={videoFileInputRef} accept="video/*" className="hidden" onChange={(e) => handleFileSelect(e, 'video')} multiple />
+              <input type="file" ref={videoCameraInputRef} accept="video/*" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'video')} />
+              <input type="file" ref={audioFileInputRef} accept="audio/*" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} multiple />
+              <input type="file" ref={audioRecordInputRef} accept="audio/*" capture="user" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} />
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                  <CameraIcon className="w-4 h-4" />
+                  <span>Photos</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => cameraInputRef.current?.click()} data-testid="button-camera-photo">
+                    <Camera className="w-4 h-4 mr-2" />
+                    Camera
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => photoFileInputRef.current?.click()} data-testid="button-file-photo">
+                    <Folder className="w-4 h-4 mr-2" />
+                    Files
+                  </Button>
+                </div>
               </div>
-              {issueMediaUrls.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {issueMediaUrls.map((url, idx) => (
-                    <div key={idx} className="flex items-center gap-1 bg-secondary/50 rounded px-2 py-1 text-xs">
-                      <span className="truncate max-w-[150px]">{url}</span>
-                      <button onClick={() => setIssueMediaUrls(issueMediaUrls.filter((_, i) => i !== idx))}>
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <VideoIcon className="w-4 h-4" />
+                  <span>Video</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => videoCameraInputRef.current?.click()} data-testid="button-camera-video">
+                    <Video className="w-4 h-4 mr-2" />
+                    Record
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => videoFileInputRef.current?.click()} data-testid="button-file-video">
+                    <Folder className="w-4 h-4 mr-2" />
+                    Files
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <MicIcon className="w-4 h-4" />
+                  <span>Audio</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => audioRecordInputRef.current?.click()} data-testid="button-record-audio">
+                    <Mic className="w-4 h-4 mr-2" />
+                    Record
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => audioFileInputRef.current?.click()} data-testid="button-file-audio">
+                    <Folder className="w-4 h-4 mr-2" />
+                    Files
+                  </Button>
+                </div>
+              </div>
+              
+              {issueMediaFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <Label className="text-xs text-muted-foreground">Attached Files ({issueMediaFiles.length})</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {issueMediaFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2 bg-secondary/50 rounded-lg p-2 text-xs">
+                        {file.type === 'photo' && <Image className="w-4 h-4 text-blue-500" />}
+                        {file.type === 'video' && <Video className="w-4 h-4 text-purple-500" />}
+                        {file.type === 'audio' && <Mic className="w-4 h-4 text-green-500" />}
+                        <span className="truncate max-w-[120px]">{file.name}</span>
+                        <button 
+                          type="button"
+                          onClick={() => setIssueMediaFiles(issueMediaFiles.filter((_, i) => i !== idx))}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
