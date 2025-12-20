@@ -22,12 +22,12 @@ export default function Dashboard() {
 
   const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'hold');
   const deliveredJobs = jobs.filter(j => j.status === 'delivered');
-  const pendingCount = activeJobs.length;
-  const issuesCount = jobs.filter(j => j.activeIssue).length;
   const pendingDeliveryCount = activeJobs.filter(j => j.currentStage === 11).length;
+  const activeCount = activeJobs.filter(j => j.currentStage < 11).length;
+  const issuesCount = jobs.filter(j => j.activeIssue).length;
   
   const stats = [
-    { label: 'Active Jobs', value: pendingCount, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { label: 'Active Jobs', value: activeCount, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10' },
     { label: 'Delivered (Mtd)', value: deliveredJobs.length, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
     { label: 'Pending Delivery', value: pendingDeliveryCount, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { label: 'Issues', value: issuesCount, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
