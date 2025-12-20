@@ -40,7 +40,11 @@ export const jobs = pgTable("jobs", {
   assignedTo: varchar("assigned_to"),
 });
 
-export const insertJobSchema = createInsertSchema(jobs).omit({
+export const insertJobSchema = createInsertSchema(jobs, {
+  promisedDate: z.union([z.date(), z.string()]).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ),
+}).omit({
   id: true,
   jobNo: true,
   createdAt: true,

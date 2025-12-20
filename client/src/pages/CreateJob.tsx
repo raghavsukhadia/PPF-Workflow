@@ -11,6 +11,10 @@ import { ArrowLeft, Save, Car, User, Calendar as CalendarIcon, Camera, Plus } fr
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateJob, useServicePackages, useUsers } from "@/lib/api";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 const formSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
@@ -22,7 +26,7 @@ const formSchema = z.object({
   regNo: z.string().min(1, "Registration number is required"),
   vin: z.string().optional(),
   package: z.string().min(1, "Package selection is required"),
-  promisedDate: z.string().min(1, "Date is required"),
+  promisedDate: z.date({ required_error: "Date is required" }),
   promisedTime: z.string().min(1, "Time is required"),
   assignedTo: z.string().optional(),
   notes: z.string().optional(),
@@ -47,7 +51,7 @@ export default function CreateJob() {
       regNo: "",
       vin: "",
       package: "",
-      promisedDate: "",
+      promisedDate: undefined,
       promisedTime: "18:00",
       assignedTo: "",
       notes: "",
@@ -55,7 +59,10 @@ export default function CreateJob() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const promisedDateTime = new Date(`${values.promisedDate}T${values.promisedTime}`);
+    const dateOnly = values.promisedDate;
+    const [hours, minutes] = values.promisedTime.split(':').map(Number);
+    const promisedDateTime = new Date(dateOnly);
+    promisedDateTime.setHours(hours, minutes, 0, 0);
     
     const jobData = {
       customerName: values.customerName,
@@ -215,11 +222,34 @@ export default function CreateJob() {
                         control={form.control}
                         name="promisedDate"
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="flex flex-col">
                             <FormLabel>Delivery Date</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} data-testid="input-promised-date" />
-                            </FormControl>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-start text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                    data-testid="input-promised-date"
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {field.value ? format(field.value, "PPP") : "Select date"}
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
                             <FormMessage />
                           </FormItem>
                         )}
