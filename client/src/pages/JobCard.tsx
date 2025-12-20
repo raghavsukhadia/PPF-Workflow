@@ -848,6 +848,8 @@ function StageDetailView({
   const isPpfStage = stage.id === 7;
   const ppfDetailsComplete = !isPpfStage || (ppfBrand.trim() !== '' && ppfRollId.trim() !== '') || ppfRollImage !== '';
   
+  const [ppfDetailsSaved, setPpfDetailsSaved] = useState(!!stage.ppfDetails?.brand || !!stage.ppfDetails?.rollImage);
+  
   const savePpfDetails = () => {
     onUpdate({ 
       ppfDetails: { 
@@ -856,6 +858,7 @@ function StageDetailView({
         rollImage: ppfRollImage 
       } 
     });
+    setPpfDetailsSaved(true);
   };
   
   const handlePpfRollImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1047,15 +1050,23 @@ function StageDetailView({
                   </div>
                 </div>
                 
-                <Button 
-                  onClick={savePpfDetails} 
-                  disabled={!ppfDetailsComplete}
-                  className="w-full"
-                  data-testid="button-save-ppf-details"
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  {ppfDetailsComplete ? 'Save PPF Details' : 'Complete Required Fields'}
-                </Button>
+                {ppfDetailsSaved ? (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+                    <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-green-500 font-medium">PPF Details Saved</p>
+                    <p className="text-xs text-muted-foreground mt-1">You can now proceed to the Checklist tab</p>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={savePpfDetails} 
+                    disabled={!ppfDetailsComplete}
+                    className="w-full"
+                    data-testid="button-save-ppf-details"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    {ppfDetailsComplete ? 'Save PPF Details' : 'Complete Required Fields'}
+                  </Button>
+                )}
               </TabsContent>
             )}
 
