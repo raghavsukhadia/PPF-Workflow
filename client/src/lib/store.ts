@@ -37,6 +37,12 @@ export type StageComment = {
   createdAt: string;
 };
 
+export type PpfDetails = {
+  brand?: string;
+  rollId?: string;
+  rollImage?: string;
+};
+
 export type JobStage = {
   id: number;
   name: string;
@@ -48,6 +54,7 @@ export type JobStage = {
   notes?: string; // Legacy - kept for backwards compatibility
   comments?: StageComment[]; // New comment system
   photos: string[]; // URLs
+  ppfDetails?: PpfDetails; // PPF details for stage 7
 };
 
 export type Job = {

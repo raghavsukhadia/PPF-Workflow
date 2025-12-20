@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { JobStage } from "@/lib/store";
+import { JobStage, PpfDetails } from "@/lib/store";
 import { useJob, useUpdateJob, useUsers, useJobIssues, useCreateJobIssue, useUpdateJobIssue, ApiJobIssue, useAuth } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -839,7 +839,36 @@ function StageDetailView({
   const isAllChecked = stage.checklist.every(item => item.checked);
   const stagePhotoInputRef = useRef<HTMLInputElement>(null);
   const stageCameraInputRef = useRef<HTMLInputElement>(null);
+  const ppfRollImageInputRef = useRef<HTMLInputElement>(null);
   const [newComment, setNewComment] = useState('');
+  const [ppfBrand, setPpfBrand] = useState(stage.ppfDetails?.brand || '');
+  const [ppfRollId, setPpfRollId] = useState(stage.ppfDetails?.rollId || '');
+  const [ppfRollImage, setPpfRollImage] = useState(stage.ppfDetails?.rollImage || '');
+  
+  const isPpfStage = stage.id === 7;
+  const ppfDetailsComplete = !isPpfStage || (ppfBrand.trim() !== '' && ppfRollId.trim() !== '') || ppfRollImage !== '';
+  
+  const savePpfDetails = () => {
+    onUpdate({ 
+      ppfDetails: { 
+        brand: ppfBrand.trim(), 
+        rollId: ppfRollId.trim(), 
+        rollImage: ppfRollImage 
+      } 
+    });
+  };
+  
+  const handlePpfRollImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setPpfRollImage(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const toggleCheck = (index: number) => {
     if (isBlocked) return;
@@ -944,13 +973,91 @@ function StageDetailView({
          {isBlocked && (
            <div className="absolute inset-0 bg-background/50 z-10 cursor-not-allowed" />
          )}
-         <Tabs defaultValue="checklist" className="w-full h-full flex flex-col">
+         <Tabs defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
             <div className="px-6 py-2 border-b border-border/50">
-               <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-                  <TabsTrigger value="checklist">Checklist ({stage.checklist.filter(i => i.checked).length}/{stage.checklist.length})</TabsTrigger>
+               <TabsList className={cn("grid w-full", isPpfStage ? "max-w-[500px] grid-cols-3" : "max-w-[400px] grid-cols-2")}>
+                  {isPpfStage && (
+                    <TabsTrigger value="ppf-details" className="relative">
+                      PPF Details
+                      {ppfDetailsComplete && <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />}
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="checklist" disabled={isPpfStage && !ppfDetailsComplete}>
+                    Checklist ({stage.checklist.filter(i => i.checked).length}/{stage.checklist.length})
+                  </TabsTrigger>
                   <TabsTrigger value="photos">Photos & Notes</TabsTrigger>
                </TabsList>
             </div>
+            
+            {isPpfStage && (
+              <TabsContent value="ppf-details" className="flex-1 p-6 space-y-6">
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                  <p className="text-sm text-primary font-medium mb-1">PPF Film Information Required</p>
+                  <p className="text-xs text-muted-foreground">Enter the PPF brand and roll ID, or attach a photo of the roll label before proceeding to the checklist.</p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>PPF Brand *</Label>
+                    <Input 
+                      placeholder="e.g., XPEL, 3M, SunTek, Llumar..." 
+                      value={ppfBrand}
+                      onChange={(e) => setPpfBrand(e.target.value)}
+                      className="bg-secondary/50"
+                      data-testid="input-ppf-brand"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>PPF Roll ID *</Label>
+                    <Input 
+                      placeholder="Enter roll ID or batch number..." 
+                      value={ppfRollId}
+                      onChange={(e) => setPpfRollId(e.target.value)}
+                      className="bg-secondary/50"
+                      data-testid="input-ppf-roll-id"
+                    />
+                  </div>
+                  
+                  <div className="text-center text-sm text-muted-foreground py-2">— OR —</div>
+                  
+                  <div className="space-y-2">
+                    <Label>Attach Roll Label Photo</Label>
+                    <input type="file" ref={ppfRollImageInputRef} accept="image/*" className="hidden" onChange={handlePpfRollImageSelect} />
+                    {ppfRollImage ? (
+                      <div className="relative w-full max-w-[300px] aspect-video rounded-lg overflow-hidden border border-border">
+                        <img src={ppfRollImage} alt="PPF Roll" className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => setPpfRollImage('')}
+                          className="absolute top-2 right-2 w-6 h-6 bg-destructive rounded-full flex items-center justify-center"
+                        >
+                          <X className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => ppfRollImageInputRef.current?.click()}
+                        className="w-full"
+                        data-testid="button-ppf-roll-image"
+                      >
+                        <Camera className="w-4 h-4 mr-2" /> Attach Roll Photo
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={savePpfDetails} 
+                  disabled={!ppfDetailsComplete}
+                  className="w-full"
+                  data-testid="button-save-ppf-details"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {ppfDetailsComplete ? 'Save PPF Details' : 'Complete Required Fields'}
+                </Button>
+              </TabsContent>
+            )}
 
             <TabsContent value="checklist" className="flex-1 p-6 space-y-4">
                {stage.checklist.map((item, idx) => (
@@ -1082,10 +1189,10 @@ function StageDetailView({
          {isCurrentStage ? (
            <Button 
               onClick={onComplete}
-              disabled={!isAllChecked || isBlocked}
+              disabled={!isAllChecked || isBlocked || !ppfDetailsComplete}
               className={cn(
                  "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
-                 (isAllChecked && !isBlocked) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+                 (isAllChecked && !isBlocked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
               )}
               data-testid="button-complete-stage"
            >
