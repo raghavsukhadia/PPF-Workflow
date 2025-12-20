@@ -787,8 +787,12 @@ export default function JobCard() {
                     <Label className="text-muted-foreground text-xs">Attached Media</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedIssue.mediaUrls.map((url, idx) => (
-                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline truncate max-w-[200px]">
-                          {url}
+                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                          <img 
+                            src={url} 
+                            alt={`Attachment ${idx + 1}`} 
+                            className="w-24 h-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
+                          />
                         </a>
                       ))}
                     </div>
