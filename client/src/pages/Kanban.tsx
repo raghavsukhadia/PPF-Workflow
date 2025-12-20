@@ -2,11 +2,13 @@ import { useJobs, useUpdateJob, ApiJob } from "@/lib/api";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Car, Clock, MoreHorizontal, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Car, Clock, MoreHorizontal, AlertCircle, CheckCircle2, Truck } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 // Group stages into simplified columns for the Kanban
 const COLUMNS = [
@@ -19,6 +21,37 @@ const COLUMNS = [
 
 export default function Kanban() {
   const { data: apiJobs, isLoading } = useJobs();
+  const updateJob = useUpdateJob();
+  const { toast } = useToast();
+
+  const handleMarkDelivered = (job: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    updateJob.mutate(
+      {
+        id: job.id,
+        data: {
+          status: 'delivered'
+        }
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Job Delivered",
+            description: `${job.vehicle.brand} ${job.vehicle.model} has been marked as delivered.`
+          });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message
+          });
+        }
+      }
+    );
+  };
 
   const jobs = useMemo(() => {
     if (!apiJobs) return [];
@@ -112,6 +145,18 @@ export default function Kanban() {
                                2d left
                              </div>
                            </div>
+                           
+                           {col.id === 'ready' && (
+                             <Button 
+                               size="sm" 
+                               className="w-full bg-green-600 hover:bg-green-700 text-white"
+                               onClick={(e) => handleMarkDelivered(job, e)}
+                               data-testid={`button-deliver-${job.id}`}
+                             >
+                               <Truck className="w-4 h-4 mr-2" />
+                               Mark as Delivered
+                             </Button>
+                           )}
                          </CardContent>
                        </Card>
                      </Link>
