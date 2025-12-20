@@ -33,7 +33,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Folder, CameraIcon, VideoIcon, MicIcon } from "lucide-react";
 
@@ -837,7 +837,13 @@ function StageDetailView({
   isCurrentStage?: boolean;
   onBackToCurrentStage?: () => void;
 }) {
-  const isAllChecked = stage.checklist.every(item => item.checked);
+  const [localChecklist, setLocalChecklist] = useState(stage.checklist);
+  
+  useEffect(() => {
+    setLocalChecklist(stage.checklist);
+  }, [stage.id]);
+  
+  const isAllChecked = localChecklist.every(item => item.checked);
   const stagePhotoInputRef = useRef<HTMLInputElement>(null);
   const stageCameraInputRef = useRef<HTMLInputElement>(null);
   const ppfRollImageInputRef = useRef<HTMLInputElement>(null);
@@ -885,8 +891,10 @@ function StageDetailView({
 
   const toggleCheck = (index: number) => {
     if (isBlocked) return;
-    const newChecklist = [...stage.checklist];
-    newChecklist[index].checked = !newChecklist[index].checked;
+    const newChecklist = localChecklist.map((item, i) => 
+      i === index ? { ...item, checked: !item.checked } : item
+    );
+    setLocalChecklist(newChecklist);
     onUpdate({ checklist: newChecklist });
   };
 
@@ -1085,7 +1093,7 @@ function StageDetailView({
             )}
 
             <TabsContent value="checklist" className="flex-1 p-6 space-y-4">
-               {stage.checklist.map((item, idx) => (
+               {localChecklist.map((item, idx) => (
                   <div key={idx} 
                        className={cn(
                           "flex items-center space-x-3 p-4 rounded-xl border transition-all cursor-pointer",
