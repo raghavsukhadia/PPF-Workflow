@@ -1255,7 +1255,7 @@ function StageDetailView({
             Report Issue
          </Button>
          {isCurrentStage ? (
-           stage.id === 11 && isJobCompleted ? (
+           stage.id === 11 && isJobCompleted && isAllChecked ? (
              <Button 
                 onClick={onMarkAsDelivered}
                 className="w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all bg-green-600 hover:bg-green-700 text-white shadow-green-500/20"
