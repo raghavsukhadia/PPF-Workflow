@@ -252,13 +252,13 @@ export default function JobCard() {
     setIssueMediaFiles([]);
   };
 
-  const moveJobStage = (direction: 'next' | 'prev') => {
+  const moveJobStage = (direction: 'next' | 'prev', localChecklist?: { item: string; checked: boolean }[]) => {
     let newStageNo = job.currentStage;
     const updatedStages = [...job.stages];
 
     if (direction === 'next' && job.currentStage < 11) {
-      const currentStageData = updatedStages[job.currentStage - 1];
-      const allChecked = currentStageData.checklist.every((item: any) => item.checked);
+      const checklistToValidate = localChecklist || updatedStages[job.currentStage - 1].checklist;
+      const allChecked = checklistToValidate.every((item: any) => item.checked);
       
       if (!allChecked) {
         toast({
@@ -272,7 +272,8 @@ export default function JobCard() {
       updatedStages[job.currentStage - 1] = {
         ...updatedStages[job.currentStage - 1],
         status: 'completed',
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
+        checklist: localChecklist || updatedStages[job.currentStage - 1].checklist
       };
       
       newStageNo++;
@@ -558,7 +559,7 @@ export default function JobCard() {
                   jobId={job.id} 
                   stage={activeStage} 
                   teamMembers={users || []}
-                  onComplete={() => moveJobStage('next')}
+                  onComplete={(checklist) => moveJobStage('next', checklist)}
                   onUpdate={(data) => updateJobStage(activeStage.id, data)}
                   onReportIssue={() => setIsIssueModalOpen(true)}
                   isBlocked={stageHasCriticalIssues}
@@ -815,7 +816,7 @@ export default function JobCard() {
 function StageDetailView({ 
   jobId, 
   stage, 
-  onComplete, 
+  onComplete,
   onUpdate,
   teamMembers,
   onReportIssue,
@@ -827,7 +828,7 @@ function StageDetailView({
 }: { 
   jobId: string; 
   stage: JobStage; 
-  onComplete: () => void;
+  onComplete: (checklist: { item: string; checked: boolean }[]) => void;
   onUpdate: (data: Partial<JobStage>) => void;
   teamMembers: any[];
   onReportIssue: () => void;
@@ -1221,7 +1222,7 @@ function StageDetailView({
          </Button>
          {isCurrentStage ? (
            <Button 
-              onClick={onComplete}
+              onClick={() => onComplete(localChecklist)}
               disabled={!isAllChecked || isBlocked || !ppfDetailsComplete}
               className={cn(
                  "w-full md:w-auto min-w-[200px] shadow-lg transition-all",
