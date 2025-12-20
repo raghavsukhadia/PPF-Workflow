@@ -2,12 +2,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
+import { useState, useRef } from "react";
 import { STAGE_TEMPLATES } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Car, User, Calendar as CalendarIcon, Camera, Plus } from "lucide-react";
+import { ArrowLeft, Save, Car, User, Calendar as CalendarIcon, Camera, Plus, Folder, X } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateJob, useServicePackages, useUsers } from "@/lib/api";
@@ -32,12 +33,39 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
+const PHOTO_LABELS = ['Front', 'Back', 'Left', 'Right', 'Roof', 'Interior'];
+
 export default function CreateJob() {
   const [, setLocation] = useLocation();
   const { data: servicePackages = [] } = useServicePackages();
   const { data: teamMembers = [] } = useUsers();
   const createJobMutation = useCreateJob();
   const { toast } = useToast();
+  
+  const [inwardPhotos, setInwardPhotos] = useState<Record<string, string>>({});
+  const [activePhotoSlot, setActivePhotoSlot] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, label: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setInwardPhotos(prev => ({ ...prev, [label]: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+    setActivePhotoSlot(null);
+  };
+  
+  const removePhoto = (label: string) => {
+    setInwardPhotos(prev => {
+      const newPhotos = { ...prev };
+      delete newPhotos[label];
+      return newPhotos;
+    });
+  };
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -371,11 +399,69 @@ export default function CreateJob() {
                  </CardHeader>
                  <CardContent>
                    <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                     {['Front', 'Back', 'Left', 'Right', 'Roof', 'Interior'].map((label, i) => (
-                       <div key={i} className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center cursor-pointer transition-colors group">
-                         <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary mb-1" />
-                         <span className="text-[10px] text-muted-foreground font-medium uppercase">{label}</span>
-                       </div>
+                     {PHOTO_LABELS.map((label, i) => (
+                       <Popover key={i} open={activePhotoSlot === label} onOpenChange={(open) => setActivePhotoSlot(open ? label : null)}>
+                         <PopoverTrigger asChild>
+                           <div className={cn(
+                             "aspect-square rounded-lg border-2 flex flex-col items-center justify-center cursor-pointer transition-colors group relative overflow-hidden",
+                             inwardPhotos[label] 
+                               ? "border-primary/50 bg-primary/5" 
+                               : "border-dashed border-border hover:border-primary/50 hover:bg-primary/5"
+                           )}>
+                             {inwardPhotos[label] ? (
+                               <>
+                                 <img src={inwardPhotos[label]} alt={label} className="w-full h-full object-cover" />
+                                 <button 
+                                   onClick={(e) => { e.stopPropagation(); removePhoto(label); }}
+                                   className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center z-10"
+                                 >
+                                   <X className="w-3 h-3 text-white" />
+                                 </button>
+                               </>
+                             ) : (
+                               <>
+                                 <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary mb-1" />
+                                 <span className="text-[10px] text-muted-foreground font-medium uppercase">{label}</span>
+                               </>
+                             )}
+                           </div>
+                         </PopoverTrigger>
+                         <PopoverContent className="w-40 p-2">
+                           <div className="space-y-1">
+                             <input 
+                               type="file" 
+                               ref={cameraInputRef} 
+                               accept="image/*" 
+                               capture="environment" 
+                               className="hidden" 
+                               onChange={(e) => handlePhotoSelect(e, label)} 
+                             />
+                             <input 
+                               type="file" 
+                               ref={fileInputRef} 
+                               accept="image/*" 
+                               className="hidden" 
+                               onChange={(e) => handlePhotoSelect(e, label)} 
+                             />
+                             <Button 
+                               variant="ghost" 
+                               size="sm" 
+                               className="w-full justify-start" 
+                               onClick={() => cameraInputRef.current?.click()}
+                             >
+                               <Camera className="w-4 h-4 mr-2" /> Camera
+                             </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="sm" 
+                               className="w-full justify-start" 
+                               onClick={() => fileInputRef.current?.click()}
+                             >
+                               <Folder className="w-4 h-4 mr-2" /> Files
+                             </Button>
+                           </div>
+                         </PopoverContent>
+                       </Popover>
                      ))}
                    </div>
                  </CardContent>
