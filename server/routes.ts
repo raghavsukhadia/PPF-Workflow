@@ -85,14 +85,29 @@ export async function registerRoutes(
     res.status(401).json({ message: "Not authenticated" });
   };
 
-  app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
-    const user = req.user as any;
-    res.json({
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      username: user.username,
-    });
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({ message: "Login failed" });
+      }
+      if (!user) {
+        console.log("Login failed:", info?.message || "Invalid credentials");
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error("Session login error:", loginErr);
+          return res.status(500).json({ message: "Session error" });
+        }
+        res.json({
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          username: user.username,
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res) => {
