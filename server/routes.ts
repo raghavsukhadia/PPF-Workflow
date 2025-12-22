@@ -26,6 +26,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Trust proxy for secure cookies behind Replit's reverse proxy
+  app.set("trust proxy", 1);
+  
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "ppf-workshop-secret-key-change-in-production",
@@ -33,6 +36,7 @@ export async function registerRoutes(
       saveUninitialized: false,
       cookie: {
         secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 1000 * 60 * 60 * 24 * 7,
       },
     })
