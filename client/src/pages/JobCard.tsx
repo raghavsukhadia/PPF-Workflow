@@ -835,15 +835,26 @@ export default function JobCard() {
                   <Label className="text-xs text-muted-foreground">Attached Files ({issueMediaFiles.length})</Label>
                   <div className="flex flex-wrap gap-2">
                     {issueMediaFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-secondary/50 rounded-lg p-2 text-xs">
-                        {file.type === 'photo' && <Image className="w-4 h-4 text-blue-500" />}
-                        {file.type === 'video' && <Video className="w-4 h-4 text-purple-500" />}
-                        {file.type === 'audio' && <Mic className="w-4 h-4 text-green-500" />}
-                        <span className="truncate max-w-[120px]">{file.name}</span>
+                      <div key={idx} className="relative group">
+                        {file.type === 'photo' && (
+                          <img src={file.dataUrl} alt={file.name} className="w-20 h-20 object-cover rounded-md border border-border" />
+                        )}
+                        {file.type === 'video' && (
+                          <div className="relative w-20 h-20 rounded-md border border-border bg-black flex items-center justify-center">
+                            <Video className="w-8 h-8 text-purple-500" />
+                            <span className="absolute bottom-1 text-[10px] text-white/80">Video</span>
+                          </div>
+                        )}
+                        {file.type === 'audio' && (
+                          <div className="relative w-20 h-20 rounded-md border border-border bg-secondary flex items-center justify-center">
+                            <Mic className="w-8 h-8 text-green-500" />
+                            <span className="absolute bottom-1 text-[10px] text-muted-foreground">Audio</span>
+                          </div>
+                        )}
                         <button 
                           type="button"
                           onClick={() => setIssueMediaFiles(issueMediaFiles.filter((_, i) => i !== idx))}
-                          className="text-muted-foreground hover:text-destructive"
+                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -913,15 +924,40 @@ export default function JobCard() {
                   <div>
                     <Label className="text-muted-foreground text-xs">Attached Media</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {selectedIssue.mediaUrls.map((url, idx) => (
-                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                          <img 
-                            src={url} 
-                            alt={`Attachment ${idx + 1}`} 
-                            className="w-24 h-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
-                          />
-                        </a>
-                      ))}
+                      {selectedIssue.mediaUrls.map((url, idx) => {
+                        const isVideo = url.startsWith('data:video') || url.includes('video');
+                        const isAudio = url.startsWith('data:audio') || url.includes('audio');
+                        
+                        if (isVideo) {
+                          return (
+                            <video 
+                              key={idx}
+                              src={url} 
+                              controls
+                              className="w-32 h-24 rounded-md border border-border bg-black"
+                            />
+                          );
+                        }
+                        if (isAudio) {
+                          return (
+                            <audio 
+                              key={idx}
+                              src={url} 
+                              controls
+                              className="w-48 h-10"
+                            />
+                          );
+                        }
+                        return (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={url} 
+                              alt={`Attachment ${idx + 1}`} 
+                              className="w-24 h-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
+                            />
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
