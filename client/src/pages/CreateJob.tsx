@@ -20,11 +20,11 @@ import { compressImage } from "@/lib/imageUtils";
 
 const formSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
-  customerPhone: z.string().min(10, "Phone number must be valid"),
+  customerPhone: z.string().optional(),
   brand: z.string().min(1, "Brand is required"),
   model: z.string().min(1, "Model is required"),
-  year: z.string().min(4, "Year is required"),
-  color: z.string().min(1, "Color is required"),
+  year: z.string().optional(),
+  color: z.string().optional(),
   regNo: z.string().min(1, "Registration number is required"),
   vin: z.string().optional(),
   package: z.string().min(1, "Package selection is required"),
@@ -187,7 +187,7 @@ export default function CreateJob() {
                      name="customerPhone"
                      render={({ field }) => (
                        <FormItem>
-                         <FormLabel>Phone / WhatsApp</FormLabel>
+                         <FormLabel className="flex items-center gap-2">Phone / WhatsApp <span className="text-xs text-muted-foreground">(Optional)</span></FormLabel>
                          <FormControl>
                            <Input placeholder="+91 98765 43210" {...field} data-testid="input-customer-phone" />
                          </FormControl>
@@ -351,7 +351,7 @@ export default function CreateJob() {
                      name="year"
                      render={({ field }) => (
                        <FormItem>
-                         <FormLabel>Year</FormLabel>
+                         <FormLabel className="flex items-center gap-2">Year <span className="text-xs text-muted-foreground">(Optional)</span></FormLabel>
                          <FormControl>
                            <Input placeholder="2024" {...field} data-testid="input-vehicle-year" />
                          </FormControl>
@@ -364,7 +364,7 @@ export default function CreateJob() {
                      name="color"
                      render={({ field }) => (
                        <FormItem>
-                         <FormLabel>Color</FormLabel>
+                         <FormLabel className="flex items-center gap-2">Color <span className="text-xs text-muted-foreground">(Optional)</span></FormLabel>
                          <FormControl>
                            <Input placeholder="Blue" {...field} data-testid="input-vehicle-color" />
                          </FormControl>
