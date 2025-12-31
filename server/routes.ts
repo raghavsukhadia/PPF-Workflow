@@ -138,6 +138,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/jobs/summary", isAuthenticated, async (req, res) => {
+    try {
+      const jobs = await storage.getJobsSummary();
+      res.json(jobs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch jobs summary" });
+    }
+  });
+
   app.get("/api/jobs/:id", isAuthenticated, async (req, res) => {
     try {
       const job = await storage.getJob(req.params.id);
@@ -169,6 +178,34 @@ export async function registerRoutes(
       res.json(job);
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to update job" });
+    }
+  });
+
+  app.post("/api/jobs/:id/deliver", isAuthenticated, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      
+      const stages = typeof job.stages === 'string' ? JSON.parse(job.stages as string) : job.stages;
+      
+      if (stages && stages[10]) {
+        stages[10] = {
+          ...stages[10],
+          status: 'completed',
+          completedAt: new Date().toISOString()
+        };
+      }
+      
+      const updatedJob = await storage.updateJob(req.params.id, {
+        status: 'delivered',
+        stages: JSON.stringify(stages)
+      });
+      
+      res.json(updatedJob);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to mark job as delivered" });
     }
   });
 

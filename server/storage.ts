@@ -24,6 +24,8 @@ import {
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
+export type JobSummary = Pick<Job, 'id' | 'jobNo' | 'customerName' | 'vehicleBrand' | 'vehicleModel' | 'vehicleRegNo' | 'status' | 'currentStage' | 'priority' | 'promisedDate' | 'assignedTo' | 'package' | 'createdAt' | 'activeIssue'>;
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -32,6 +34,7 @@ export interface IStorage {
   deleteUser(id: string): Promise<void>;
   
   getAllJobs(): Promise<Job[]>;
+  getJobsSummary(): Promise<JobSummary[]>;
   getJob(id: string): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   updateJob(id: string, data: Partial<InsertJob>): Promise<Job | undefined>;
@@ -93,6 +96,25 @@ export class DatabaseStorage implements IStorage {
 
   async getAllJobs(): Promise<Job[]> {
     return await db.select().from(jobs).orderBy(desc(jobs.createdAt));
+  }
+
+  async getJobsSummary(): Promise<JobSummary[]> {
+    return await db.select({
+      id: jobs.id,
+      jobNo: jobs.jobNo,
+      customerName: jobs.customerName,
+      vehicleBrand: jobs.vehicleBrand,
+      vehicleModel: jobs.vehicleModel,
+      vehicleRegNo: jobs.vehicleRegNo,
+      status: jobs.status,
+      currentStage: jobs.currentStage,
+      priority: jobs.priority,
+      promisedDate: jobs.promisedDate,
+      assignedTo: jobs.assignedTo,
+      package: jobs.package,
+      createdAt: jobs.createdAt,
+      activeIssue: jobs.activeIssue,
+    }).from(jobs).orderBy(desc(jobs.createdAt));
   }
 
   async getJob(id: string): Promise<Job | undefined> {

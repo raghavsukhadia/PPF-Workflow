@@ -136,10 +136,34 @@ export function useLogout() {
   });
 }
 
+export interface ApiJobSummary {
+  id: string;
+  jobNo: string;
+  customerName: string;
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehicleRegNo: string;
+  status: string;
+  currentStage: number;
+  priority: string;
+  promisedDate: string;
+  assignedTo: string | null;
+  package: string;
+  createdAt: string;
+  activeIssue: any;
+}
+
 export function useJobs() {
   return useQuery<ApiJob[]>({
     queryKey: ["/api/jobs"],
     queryFn: () => fetcher("/api/jobs"),
+  });
+}
+
+export function useJobsSummary() {
+  return useQuery<ApiJobSummary[]>({
+    queryKey: ["/api/jobs/summary"],
+    queryFn: () => fetcher("/api/jobs/summary"),
   });
 }
 
@@ -160,6 +184,7 @@ export function useCreateJob() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
     },
   });
 }
@@ -174,6 +199,7 @@ export function useUpdateJob() {
       }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.id] });
     },
   });
@@ -185,6 +211,19 @@ export function useDeleteJob() {
     mutationFn: (id: string) => fetcher(`/api/jobs/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
+    },
+  });
+}
+
+export function useDeliverJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => fetcher(`/api/jobs/${id}/deliver`, { method: "POST" }),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", id] });
     },
   });
 }

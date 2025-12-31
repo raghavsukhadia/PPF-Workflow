@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -38,7 +38,12 @@ export const jobs = pgTable("jobs", {
   priority: text("priority").notNull().default('normal'),
   activeIssue: jsonb("active_issue"),
   assignedTo: varchar("assigned_to"),
-});
+}, (table) => [
+  index("jobs_status_idx").on(table.status),
+  index("jobs_current_stage_idx").on(table.currentStage),
+  index("jobs_assigned_to_idx").on(table.assignedTo),
+  index("jobs_status_stage_idx").on(table.status, table.currentStage),
+]);
 
 export const insertJobSchema = createInsertSchema(jobs, {
   promisedDate: z.union([z.date(), z.string()]).transform((val) => 

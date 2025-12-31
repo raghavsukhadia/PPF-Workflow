@@ -14,17 +14,21 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useAuth, useJobs, type ApiJob } from "@/lib/api";
+import { useAuth, useJobsSummary, type ApiJobSummary } from "@/lib/api";
+import { useMemo } from "react";
 
 export default function Dashboard() {
   const { data: currentUser } = useAuth();
-  const { data: jobs = [], isLoading } = useJobs();
+  const { data: jobs = [], isLoading } = useJobsSummary();
 
-  const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'hold');
-  const deliveredJobs = jobs.filter(j => j.status === 'delivered');
-  const pendingDeliveryCount = activeJobs.filter(j => j.currentStage === 11).length;
-  const activeCount = activeJobs.filter(j => j.currentStage < 11).length;
-  const issuesCount = jobs.filter(j => j.activeIssue).length;
+  const { activeJobs, deliveredJobs, pendingDeliveryCount, activeCount, issuesCount } = useMemo(() => {
+    const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'hold');
+    const deliveredJobs = jobs.filter(j => j.status === 'delivered');
+    const pendingDeliveryCount = activeJobs.filter(j => j.currentStage === 11).length;
+    const activeCount = activeJobs.filter(j => j.currentStage < 11).length;
+    const issuesCount = jobs.filter(j => j.activeIssue).length;
+    return { activeJobs, deliveredJobs, pendingDeliveryCount, activeCount, issuesCount };
+  }, [jobs]);
   
   const stats = [
     { label: 'Active Jobs', value: activeCount, icon: Car, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -99,10 +103,7 @@ export default function Dashboard() {
             <CardContent className="p-6">
                <div className="space-y-6">
                   {activeJobs.slice(0, 5).map((job, index) => {
-                    const stages = typeof job.stages === 'string' ? JSON.parse(job.stages) : job.stages;
-                    const currentStageName = stages.find((s: any) => s.id === job.currentStage)?.name || 'Unknown';
                     const isLast = index === Math.min(activeJobs.length - 1, 4);
-                    const hasIssue = !!job.activeIssue;
                     
                     return (
                       <Link key={job.id} href={`/jobs/${job.id}`}>
@@ -110,15 +111,14 @@ export default function Dashboard() {
                           <div className="flex flex-col items-center">
                             <div className={cn(
                               "w-2 h-2 rounded-full mt-2",
-                              hasIssue ? "bg-red-500" : job.currentStage === 11 ? "bg-green-500" : "bg-primary"
+                              job.currentStage === 11 ? "bg-green-500" : "bg-primary"
                             )}></div>
                             {!isLast && <div className="w-0.5 h-full bg-border mt-1"></div>}
                           </div>
                           <div>
                             <p className="text-sm font-medium">{job.vehicleBrand} {job.vehicleModel}</p>
                             <p className="text-xs text-muted-foreground">
-                              Stage {job.currentStage} • {currentStageName}
-                              {hasIssue && <span className="text-red-500 ml-1">• Issue</span>}
+                              Stage {job.currentStage}/11
                             </p>
                           </div>
                         </div>
@@ -139,24 +139,24 @@ export default function Dashboard() {
   );
 }
 
-function JobListItem({ job }: { job: ApiJob }) {
-  const stages = typeof job.stages === 'string' ? JSON.parse(job.stages) : job.stages;
-  const currentStageName = stages.find((s: any) => s.id === job.currentStage)?.name || 'Unknown';
+const STAGE_NAMES = [
+  '', 'Vehicle Inward', 'Inspection', 'Washing', 'Surface Prep', 'Parts Opening',
+  'Washing (2)', 'PPF Application', 'Parts Repacking', 'Cleaning', 'Final Inspection', 'Delivered'
+];
+
+function JobListItem({ job }: { job: ApiJobSummary }) {
+  const currentStageName = STAGE_NAMES[job.currentStage] || 'Unknown';
   const progress = (job.currentStage / 11) * 100;
-  const hasIssue = !!job.activeIssue;
 
   return (
     <Link href={`/jobs/${job.id}`}>
       <div className={cn(
         "group relative overflow-hidden bg-card hover:bg-card/80 border transition-all duration-300 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md",
-        hasIssue ? "border-red-500/50 shadow-red-500/5" : "border-border/50 hover:border-primary/50"
+        "border-border/50 hover:border-primary/50"
       )}
       data-testid={`card-job-${job.id}`}
       >
-        <div className={cn(
-          "absolute top-0 left-0 w-1 h-full transition-opacity",
-          hasIssue ? "bg-red-500 opacity-100" : "bg-gradient-to-b from-primary to-blue-600 opacity-0 group-hover:opacity-100"
-        )} />
+        <div className="absolute top-0 left-0 w-1 h-full transition-opacity bg-gradient-to-b from-primary to-blue-600 opacity-0 group-hover:opacity-100" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-start gap-4">
@@ -167,9 +167,8 @@ function JobListItem({ job }: { job: ApiJob }) {
                 <div className="flex items-center gap-2">
                    <h4 className="font-display font-bold text-lg">{job.vehicleBrand} {job.vehicleModel}</h4>
                    {job.priority === 'high' && <Badge variant="destructive" className="text-[10px] h-5">URGENT</Badge>}
-                   {hasIssue && <Badge variant="destructive" className="text-[10px] h-5 bg-red-500/20 text-red-500 border-red-500/50 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> ISSUE REPORTED</Badge>}
                 </div>
-                <p className="text-sm text-muted-foreground">{job.vehicleYear} • {job.vehicleColor} • {job.vehicleRegNo}</p>
+                <p className="text-sm text-muted-foreground">{job.vehicleRegNo}</p>
              </div>
           </div>
           <div className="text-right">

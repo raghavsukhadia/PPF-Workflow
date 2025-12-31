@@ -1,9 +1,9 @@
-import { useJobs, useUpdateJob, ApiJob } from "@/lib/api";
+import { useJobsSummary, useDeliverJob, ApiJobSummary } from "@/lib/api";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Car, Clock, MoreHorizontal, AlertCircle, Truck } from "lucide-react";
+import { Car, Clock, Truck, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
@@ -19,73 +19,34 @@ const COLUMNS = [
 ];
 
 export default function Kanban() {
-  const { data: apiJobs, isLoading } = useJobs();
-  const updateJob = useUpdateJob();
+  const { data: apiJobs, isLoading } = useJobsSummary();
+  const deliverJob = useDeliverJob();
   const { toast } = useToast();
 
-  const handleMarkDelivered = (job: any, e: React.MouseEvent) => {
+  const handleMarkDelivered = (job: ApiJobSummary, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    const updatedStages = [...job.stages];
-    updatedStages[10] = {
-      ...updatedStages[10],
-      status: 'completed',
-      completedAt: new Date().toISOString()
-    };
-    
-    updateJob.mutate(
-      {
-        id: job.id,
-        data: {
-          status: 'delivered',
-          stages: JSON.stringify(updatedStages)
-        }
+    deliverJob.mutate(job.id, {
+      onSuccess: () => {
+        toast({
+          title: "Job Delivered",
+          description: `${job.vehicleBrand} ${job.vehicleModel} has been marked as delivered.`
+        });
       },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Job Delivered",
-            description: `${job.vehicle.brand} ${job.vehicle.model} has been marked as delivered.`
-          });
-        },
-        onError: (error) => {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: error.message
-          });
-        }
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message
+        });
       }
-    );
+    });
   };
 
   const jobs = useMemo(() => {
     if (!apiJobs) return [];
-    
-    return apiJobs.map(apiJob => {
-      const stages = typeof apiJob.stages === 'string' 
-        ? JSON.parse(apiJob.stages) 
-        : apiJob.stages;
-      
-      const activeIssue = typeof apiJob.activeIssue === 'string'
-        ? (apiJob.activeIssue ? JSON.parse(apiJob.activeIssue) : null)
-        : apiJob.activeIssue;
-
-      return {
-        ...apiJob,
-        stages,
-        activeIssue,
-        vehicle: {
-          brand: apiJob.vehicleBrand,
-          model: apiJob.vehicleModel,
-          year: apiJob.vehicleYear,
-          color: apiJob.vehicleColor,
-          regNo: apiJob.vehicleRegNo,
-          vin: apiJob.vehicleVin || '',
-        }
-      };
-    });
+    return apiJobs;
   }, [apiJobs]);
 
   const getJobsForColumn = (stageIds: number[]) => {
@@ -119,32 +80,34 @@ export default function Kanban() {
                    <Badge variant="secondary" className="bg-background text-xs shrink-0">{colJobs.length}</Badge>
                  </div>
                  <div className="p-3 space-y-3">
-                   {colJobs.map(job => (
+                   {colJobs.map(job => {
+                     const hasIssue = !!job.activeIssue;
+                     return (
                      <Link key={job.id} href={`/jobs/${job.id}`}>
                        <Card className={cn(
                          "cursor-pointer transition-all group bg-card",
-                         job.activeIssue 
+                         hasIssue 
                            ? "border-destructive/50 shadow-sm shadow-destructive/10" 
                            : "hover:border-primary/50 hover:shadow-md"
                        )}>
                          <CardContent className="p-4 space-y-3">
                            <div className="flex justify-between items-start">
-                             <div className="font-display font-bold text-lg leading-tight">{job.vehicle.brand}<br/><span className="text-base font-normal text-muted-foreground">{job.vehicle.model}</span></div>
-                             {job.priority === 'high' && !job.activeIssue && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="High Priority" />}
-                             {job.activeIssue && <AlertCircle className="w-4 h-4 text-destructive animate-pulse" />}
+                             <div className="font-display font-bold text-lg leading-tight">{job.vehicleBrand}<br/><span className="text-base font-normal text-muted-foreground">{job.vehicleModel}</span></div>
+                             {job.priority === 'high' && !hasIssue && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="High Priority" />}
+                             {hasIssue && <AlertCircle className="w-4 h-4 text-destructive animate-pulse" />}
                            </div>
                            
                            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
                              <Car className="w-3 h-3" />
-                             <span className="truncate">{job.vehicle.regNo}</span>
+                             <span className="truncate">{job.vehicleRegNo}</span>
                            </div>
 
                            <div className="flex justify-between items-end pt-2 border-t border-border/50">
                              <Badge 
                                variant="outline" 
-                               className={cn("text-[10px] h-5", job.activeIssue ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-primary/5 text-primary border-primary/20")}
+                               className={cn("text-[10px] h-5", hasIssue ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-primary/5 text-primary border-primary/20")}
                              >
-                               {job.activeIssue ? "ISSUE" : `Stage ${job.currentStage}`}
+                               {hasIssue ? "ISSUE" : `Stage ${job.currentStage}`}
                              </Badge>
                              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                                <Clock className="w-3 h-3" />
@@ -152,31 +115,21 @@ export default function Kanban() {
                              </div>
                            </div>
                            
-                           {col.id === 'ready' && (() => {
-                            const stage11 = job.stages[10];
-                            const allChecked = stage11?.checklist?.every((item: any) => item.checked) ?? false;
-                            return (
+                           {col.id === 'ready' && (
                               <Button 
                                 size="sm" 
-                                className={cn(
-                                  "w-full",
-                                  allChecked 
-                                    ? "bg-green-600 hover:bg-green-700 text-white" 
-                                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                                )}
-                                onClick={(e) => allChecked && handleMarkDelivered(job, e)}
-                                disabled={!allChecked}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                onClick={(e) => handleMarkDelivered(job, e)}
                                 data-testid={`button-deliver-${job.id}`}
                               >
                                 <Truck className="w-4 h-4 mr-2" />
-                                {allChecked ? 'Mark as Delivered' : 'Complete Checklist First'}
+                                Mark as Delivered
                               </Button>
-                            );
-                          })()}
+                           )}
                          </CardContent>
                        </Card>
                      </Link>
-                   ))}
+                   );})}
                    {colJobs.length === 0 && (
                       <div className="h-24 flex items-center justify-center text-xs text-muted-foreground border-2 border-dashed border-border/30 rounded-lg">
                          Empty
