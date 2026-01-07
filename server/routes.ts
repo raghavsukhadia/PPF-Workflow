@@ -7,6 +7,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcrypt";
 import { insertJobSchema, insertServicePackageSchema, insertUserSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "@shared/schema";
 import { z } from "zod";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 const updatePpfRollSchema = z.object({
   status: z.enum(["active", "depleted", "disposed"]).optional(),
@@ -84,6 +85,9 @@ export async function registerRoutes(
     }
     res.status(401).json({ message: "Not authenticated" });
   };
+
+  // Register object storage routes for file uploads (with authentication)
+  registerObjectStorageRoutes(app, isAuthenticated);
 
   app.post("/api/auth/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {

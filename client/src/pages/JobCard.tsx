@@ -38,6 +38,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Folder, CameraIcon, VideoIcon, MicIcon } from "lucide-react";
 import { compressImage, debounce } from "@/lib/imageUtils";
+import { useUpload } from "@/hooks/use-upload";
 
 const STAGE_NAMES: Record<number, string> = {
   1: "Vehicle Inward",
@@ -81,6 +82,7 @@ export default function JobCard() {
   const updateIssue = useUpdateJobIssue();
   const deleteIssue = useDeleteJobIssue();
   const { toast } = useToast();
+  const { uploadFile, isUploading: isUploadingMedia } = useUpload();
   
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [issueType, setIssueType] = useState("scratch");
@@ -88,7 +90,8 @@ export default function JobCard() {
   const [issueLocation, setIssueLocation] = useState("");
   const [issueSeverity, setIssueSeverity] = useState("medium");
   const [issueMediaUrls, setIssueMediaUrls] = useState<string[]>([]);
-  const [issueMediaFiles, setIssueMediaFiles] = useState<{ name: string; type: string; dataUrl: string }[]>([]);
+  const [issueMediaFiles, setIssueMediaFiles] = useState<{ name: string; type: string; dataUrl: string; objectPath?: string }[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [selectedIssue, setSelectedIssue] = useState<ApiJobIssue | null>(null);
   const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(null);
   
@@ -99,22 +102,46 @@ export default function JobCard() {
   const audioFileInputRef = useRef<HTMLInputElement>(null);
   const audioRecordInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
     const files = e.target.files;
     if (!files) return;
     
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        setIssueMediaFiles(prev => [...prev, { 
-          name: file.name, 
-          type: mediaType,
-          dataUrl 
-        }]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const fileArray = Array.from(files);
+    setUploadingCount(prev => prev + fileArray.length);
+    
+    for (const file of fileArray) {
+      try {
+        const result = await uploadFile(file);
+        if (result) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            setIssueMediaFiles(prev => [...prev, { 
+              name: file.name, 
+              type: mediaType,
+              dataUrl,
+              objectPath: result.objectPath
+            }]);
+            setUploadingCount(prev => prev - 1);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setUploadingCount(prev => prev - 1);
+          toast({
+            variant: "destructive",
+            title: "Upload Failed",
+            description: `Failed to upload ${file.name}`
+          });
+        }
+      } catch (error) {
+        setUploadingCount(prev => prev - 1);
+        toast({
+          variant: "destructive",
+          title: "Upload Error",
+          description: `Error uploading ${file.name}`
+        });
+      }
+    }
     e.target.value = '';
   };
 
@@ -183,9 +210,23 @@ export default function JobCard() {
       return;
     }
 
+    if (uploadingCount > 0) {
+      toast({
+        variant: "destructive",
+        title: "Upload in Progress",
+        description: "Please wait for media uploads to complete."
+      });
+      return;
+    }
+
     const allMediaUrls = [
       ...issueMediaUrls,
-      ...issueMediaFiles.map(f => f.dataUrl)
+      ...issueMediaFiles.map(f => {
+        if (f.objectPath) {
+          return `${f.objectPath}#${f.type}`;
+        }
+        return f.dataUrl;
+      })
     ];
 
     createIssue.mutate(
@@ -252,6 +293,7 @@ export default function JobCard() {
     setIssueSeverity("medium");
     setIssueMediaUrls([]);
     setIssueMediaFiles([]);
+    setUploadingCount(0);
   };
 
   const moveJobStage = (direction: 'next' | 'prev', localChecklist?: { item: string; checked: boolean }[]) => {
@@ -925,14 +967,16 @@ export default function JobCard() {
                     <Label className="text-muted-foreground text-xs">Attached Media</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedIssue.mediaUrls.map((url, idx) => {
-                        const isVideo = url.startsWith('data:video') || url.includes('video');
-                        const isAudio = url.startsWith('data:audio') || url.includes('audio');
+                        const hashType = url.includes('#') ? url.split('#')[1] : '';
+                        const cleanUrl = url.split('#')[0];
+                        const isVideo = url.startsWith('data:video') || hashType === 'video';
+                        const isAudio = url.startsWith('data:audio') || hashType === 'audio';
                         
                         if (isVideo) {
                           return (
                             <video 
                               key={idx}
-                              src={url} 
+                              src={cleanUrl} 
                               controls
                               className="w-32 h-24 rounded-md border border-border bg-black"
                             />
@@ -942,16 +986,16 @@ export default function JobCard() {
                           return (
                             <audio 
                               key={idx}
-                              src={url} 
+                              src={cleanUrl} 
                               controls
                               className="w-48 h-10"
                             />
                           );
                         }
                         return (
-                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                          <a key={idx} href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
                             <img 
-                              src={url} 
+                              src={cleanUrl} 
                               alt={`Attachment ${idx + 1}`} 
                               className="w-24 h-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
                             />
@@ -1010,6 +1054,7 @@ function StageDetailView({
   isJobDelivered?: boolean;
 }) {
   const [localChecklist, setLocalChecklist] = useState(stage.checklist);
+  const { uploadFile } = useUpload();
   
   useEffect(() => {
     setLocalChecklist(stage.checklist);
@@ -1053,12 +1098,12 @@ function StageDetailView({
     
     for (const file of Array.from(files)) {
       try {
-        const compressed = await compressImage(file, 800, 0.7);
-        setPpfRollImages(prev => [...prev, compressed]);
+        const result = await uploadFile(file);
+        if (result) {
+          setPpfRollImages(prev => [...prev, result.objectPath]);
+        }
       } catch {
-        const reader = new FileReader();
-        reader.onload = () => setPpfRollImages(prev => [...prev, reader.result as string]);
-        reader.readAsDataURL(file);
+        console.error('Failed to upload PPF roll image');
       }
     }
     e.target.value = '';
@@ -1082,16 +1127,13 @@ function StageDetailView({
     
     for (const file of Array.from(files)) {
       try {
-        const compressed = await compressImage(file, 800, 0.7);
-        const currentPhotos = stage.photos || [];
-        onUpdate({ photos: [...currentPhotos, compressed] });
-      } catch {
-        const reader = new FileReader();
-        reader.onload = () => {
+        const result = await uploadFile(file);
+        if (result) {
           const currentPhotos = stage.photos || [];
-          onUpdate({ photos: [...currentPhotos, reader.result as string] });
-        };
-        reader.readAsDataURL(file);
+          onUpdate({ photos: [...currentPhotos, result.objectPath] });
+        }
+      } catch {
+        console.error('Failed to upload stage photo');
       }
     }
     e.target.value = '';
