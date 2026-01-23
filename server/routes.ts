@@ -1,13 +1,21 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import session from "express-session";
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import bcrypt from "bcrypt";
 import { insertJobSchema, insertServicePackageSchema, insertUserSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "@shared/schema";
 import { z } from "zod";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase Admin Client for token verification
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  // In production/migration, these must be set.
+  // We'll warn if not set, but the server might fail to verify tokens.
+  console.warn("Supabase credentials not found in environment. Auth verification will fail.");
+}
+
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const updatePpfRollSchema = z.object({
   status: z.enum(["active", "depleted", "disposed"]).optional(),
@@ -15,125 +23,48 @@ const updatePpfRollSchema = z.object({
   imageUrl: z.string().optional(),
 }).strict();
 
-declare module "express-session" {
-  interface SessionData {
-    passport: {
-      user: string;
-    };
+// Middleware to verify Supabase JWT
+const verifyAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "No authorization header" });
   }
-}
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+
+  // Attach user to request
+  (req as any).user = {
+    id: user.id,
+    email: user.email,
+    name: user.user_metadata?.name || user.email,
+    role: user.user_metadata?.role || "user",
+    username: user.user_metadata?.username || user.email,
+  };
+
+  next();
+};
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Trust proxy for secure cookies behind Replit's reverse proxy
+  // Trust proxy for Vercel/proxies
   app.set("trust proxy", 1);
-  
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "ppf-workshop-secret-key-change-in-production",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 1000 * 60 * 60 * 24 * 7,
-      },
-    })
-  );
 
-  app.use(passport.initialize());
-  app.use(passport.session());
+  // NOTE: Static file serving is handled by Vercel or separate static hosting in production
 
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user) {
-          return done(null, false, { message: "Invalid credentials" });
-        }
-
-        const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) {
-          return done(null, false, { message: "Invalid credentials" });
-        }
-
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    })
-  );
-
-  passport.serializeUser((user: any, done) => {
-    done(null, user.id);
+  // API Routes - All protected by verifyAuth
+  app.get("/api/auth/me", verifyAuth, (req, res) => {
+    const user = (req as any).user;
+    res.json(user);
   });
 
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
-
-  const isAuthenticated = (req: any, res: any, next: any) => {
-    if (req.isAuthenticated()) {
-      return next();
-    }
-    res.status(401).json({ message: "Not authenticated" });
-  };
-
-  // Register object storage routes for file uploads (with authentication)
-  registerObjectStorageRoutes(app, isAuthenticated);
-
-  app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) {
-        console.error("Login error:", err);
-        return res.status(500).json({ message: "Login failed" });
-      }
-      if (!user) {
-        console.log("Login failed:", info?.message || "Invalid credentials");
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
-      }
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Session login error:", loginErr);
-          return res.status(500).json({ message: "Session error" });
-        }
-        res.json({
-          id: user.id,
-          name: user.name,
-          role: user.role,
-          username: user.username,
-        });
-      });
-    })(req, res, next);
-  });
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Logout failed" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
-  });
-
-  app.get("/api/auth/me", isAuthenticated, (req, res) => {
-    const user = req.user as any;
-    res.json({
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      username: user.username,
-    });
-  });
-
-  app.get("/api/jobs", isAuthenticated, async (req, res) => {
+  app.get("/api/jobs", verifyAuth, async (req, res) => {
     try {
       const jobs = await storage.getAllJobs();
       res.json(jobs);
@@ -142,7 +73,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/jobs/summary", isAuthenticated, async (req, res) => {
+  app.get("/api/jobs/summary", verifyAuth, async (req, res) => {
     try {
       const jobs = await storage.getJobsSummary();
       res.json(jobs);
@@ -151,7 +82,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/jobs/:id", verifyAuth, async (req, res) => {
     try {
       const job = await storage.getJob(req.params.id);
       if (!job) {
@@ -163,7 +94,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/jobs", isAuthenticated, async (req, res) => {
+  app.post("/api/jobs", verifyAuth, async (req, res) => {
     try {
       const validatedData = insertJobSchema.parse(req.body);
       const job = await storage.createJob(validatedData);
@@ -173,7 +104,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/jobs/:id", verifyAuth, async (req, res) => {
     try {
       const job = await storage.updateJob(req.params.id, req.body);
       if (!job) {
@@ -185,15 +116,15 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/jobs/:id/deliver", isAuthenticated, async (req, res) => {
+  app.post("/api/jobs/:id/deliver", verifyAuth, async (req, res) => {
     try {
       const job = await storage.getJob(req.params.id);
       if (!job) {
         return res.status(404).json({ message: "Job not found" });
       }
-      
+
       const stages = typeof job.stages === 'string' ? JSON.parse(job.stages as string) : job.stages;
-      
+
       if (stages && stages[10]) {
         stages[10] = {
           ...stages[10],
@@ -201,19 +132,19 @@ export async function registerRoutes(
           completedAt: new Date().toISOString()
         };
       }
-      
+
       const updatedJob = await storage.updateJob(req.params.id, {
         status: 'delivered',
         stages: JSON.stringify(stages)
       });
-      
+
       res.json(updatedJob);
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to mark job as delivered" });
     }
   });
 
-  app.delete("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/jobs/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deleteJob(req.params.id);
       res.json({ message: "Job deleted successfully" });
@@ -222,9 +153,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/users", isAuthenticated, async (req, res) => {
+  app.get("/api/users", verifyAuth, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
+      // Supabase users are managed via Supabase Auth, but if we sync them to local DB:
       const usersWithoutPasswords = users.map(({ password, ...user }) => user);
       res.json(usersWithoutPasswords);
     } catch (error) {
@@ -232,22 +164,21 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users", isAuthenticated, async (req, res) => {
+  // Note: Creating users typically happens via Supabase Auth SignUp. 
+  // If we want to store additional user profile data in our own table, we can do it here.
+  // For now, we'll keep the route but it might need adjustment based on how we want to handle user creation.
+  app.post("/api/users", verifyAuth, async (req, res) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      const user = await storage.createUser({
-        ...validatedData,
-        password: hashedPassword,
-      });
-      const { password, ...userWithoutPassword } = user;
-      res.status(201).json(userWithoutPassword);
+      // In a Supabase migration, we might rely on Supabase to create the user in Auth
+      // and then use a webhook or client call to create the user profile in our DB.
+      // Or we can use the Admin API here to create the auth user.
+      res.status(501).json({ message: "User creation should be done via Supabase Auth" });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to create user" });
     }
   });
 
-  app.delete("/api/users/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/users/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deleteUser(req.params.id);
       res.json({ message: "User deleted successfully" });
@@ -256,7 +187,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/packages", isAuthenticated, async (req, res) => {
+  app.get("/api/packages", verifyAuth, async (req, res) => {
     try {
       const packages = await storage.getAllServicePackages();
       res.json(packages);
@@ -265,7 +196,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/packages", isAuthenticated, async (req, res) => {
+  app.post("/api/packages", verifyAuth, async (req, res) => {
     try {
       const validatedData = insertServicePackageSchema.parse(req.body);
       const pkg = await storage.createServicePackage(validatedData);
@@ -275,7 +206,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/packages/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/packages/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deleteServicePackage(req.params.id);
       res.json({ message: "Package deleted successfully" });
@@ -285,7 +216,7 @@ export async function registerRoutes(
   });
 
   // PPF Products Routes
-  app.get("/api/ppf-products", isAuthenticated, async (req, res) => {
+  app.get("/api/ppf-products", verifyAuth, async (req, res) => {
     try {
       const products = await storage.getAllPpfProducts();
       res.json(products);
@@ -294,7 +225,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/ppf-products", isAuthenticated, async (req, res) => {
+  app.post("/api/ppf-products", verifyAuth, async (req, res) => {
     try {
       const validatedData = insertPpfProductSchema.parse(req.body);
       const product = await storage.createPpfProduct(validatedData);
@@ -304,7 +235,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/ppf-products/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/ppf-products/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deletePpfProduct(req.params.id);
       res.json({ message: "PPF product deleted successfully" });
@@ -314,7 +245,7 @@ export async function registerRoutes(
   });
 
   // PPF Rolls Routes
-  app.get("/api/ppf-rolls", isAuthenticated, async (req, res) => {
+  app.get("/api/ppf-rolls", verifyAuth, async (req, res) => {
     try {
       const rolls = await storage.getAllPpfRolls();
       res.json(rolls);
@@ -323,7 +254,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/ppf-rolls", isAuthenticated, async (req, res) => {
+  app.post("/api/ppf-rolls", verifyAuth, async (req, res) => {
     try {
       const validatedData = insertPpfRollSchema.parse(req.body);
       const roll = await storage.createPpfRoll(validatedData);
@@ -333,7 +264,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/ppf-rolls/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/ppf-rolls/:id", verifyAuth, async (req, res) => {
     try {
       const validatedData = updatePpfRollSchema.parse(req.body);
       const roll = await storage.updatePpfRoll(req.params.id, validatedData);
@@ -346,7 +277,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/ppf-rolls/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/ppf-rolls/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deletePpfRoll(req.params.id);
       res.json({ message: "PPF roll deleted successfully" });
@@ -356,7 +287,7 @@ export async function registerRoutes(
   });
 
   // Job PPF Usage Routes
-  app.get("/api/jobs/:id/ppf-usage", isAuthenticated, async (req, res) => {
+  app.get("/api/jobs/:id/ppf-usage", verifyAuth, async (req, res) => {
     try {
       const usage = await storage.getJobPpfUsage(req.params.id);
       res.json(usage);
@@ -365,7 +296,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/jobs/:id/ppf-usage", isAuthenticated, async (req, res) => {
+  app.post("/api/jobs/:id/ppf-usage", verifyAuth, async (req, res) => {
     try {
       const validatedData = insertJobPpfUsageSchema.parse({
         ...req.body,
@@ -378,7 +309,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/ppf-usage/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/ppf-usage/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deleteJobPpfUsage(req.params.id);
       res.json({ message: "PPF usage deleted successfully" });
@@ -388,7 +319,7 @@ export async function registerRoutes(
   });
 
   // Job Issues Routes
-  app.get("/api/jobs/:id/issues", isAuthenticated, async (req, res) => {
+  app.get("/api/jobs/:id/issues", verifyAuth, async (req, res) => {
     try {
       const issues = await storage.getJobIssues(req.params.id);
       res.json(issues);
@@ -397,13 +328,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/jobs/:id/issues", isAuthenticated, async (req, res) => {
+  app.post("/api/jobs/:id/issues", verifyAuth, async (req, res) => {
     try {
-      const user = req.user as any;
+      const user = (req as any).user;
       const validatedData = insertJobIssueSchema.parse({
         ...req.body,
         jobId: req.params.id,
-        reportedBy: user?.name || user?.username || 'Unknown' // Server-side auth
+        reportedBy: user?.name || user?.username || 'Unknown'
       });
       const issue = await storage.createJobIssue(validatedData);
       res.status(201).json(issue);
@@ -412,9 +343,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/issues/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/issues/:id", verifyAuth, async (req, res) => {
     try {
-      const user = req.user as any;
+      const user = (req as any).user;
       const updateData = { ...req.body };
       // If resolving an issue, set resolvedBy from authenticated user
       if (updateData.status === 'resolved' && !updateData.resolvedBy) {
@@ -430,7 +361,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/issues/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/issues/:id", verifyAuth, async (req, res) => {
     try {
       await storage.deleteJobIssue(req.params.id);
       res.json({ message: "Issue deleted successfully" });

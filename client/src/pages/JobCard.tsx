@@ -14,11 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  AlertTriangle, 
-  User, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertTriangle,
+  User,
   ChevronRight,
   Camera,
   StickyNote,
@@ -83,18 +83,18 @@ export default function JobCard() {
   const deleteIssue = useDeleteJobIssue();
   const { toast } = useToast();
   const { uploadFile, isUploading: isUploadingMedia } = useUpload();
-  
+
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [issueType, setIssueType] = useState("scratch");
   const [issueDescription, setIssueDescription] = useState("");
   const [issueLocation, setIssueLocation] = useState("");
   const [issueSeverity, setIssueSeverity] = useState("medium");
   const [issueMediaUrls, setIssueMediaUrls] = useState<string[]>([]);
-  const [issueMediaFiles, setIssueMediaFiles] = useState<{ name: string; type: string; dataUrl: string; objectPath?: string }[]>([]);
+  const [issueMediaFiles, setIssueMediaFiles] = useState<{ name: string; type: string; dataUrl: string; uploadURL?: string }[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [selectedIssue, setSelectedIssue] = useState<ApiJobIssue | null>(null);
   const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(null);
-  
+
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoFileInputRef = useRef<HTMLInputElement>(null);
@@ -105,10 +105,10 @@ export default function JobCard() {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
     const files = e.target.files;
     if (!files) return;
-    
+
     const fileArray = Array.from(files);
     setUploadingCount(prev => prev + fileArray.length);
-    
+
     for (const file of fileArray) {
       try {
         const result = await uploadFile(file);
@@ -116,11 +116,11 @@ export default function JobCard() {
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
-            setIssueMediaFiles(prev => [...prev, { 
-              name: file.name, 
+            setIssueMediaFiles(prev => [...prev, {
+              name: file.name,
               type: mediaType,
               dataUrl,
-              objectPath: result.objectPath
+              uploadURL: result.uploadURL
             }]);
             setUploadingCount(prev => prev - 1);
           };
@@ -147,9 +147,9 @@ export default function JobCard() {
 
   const job = useMemo(() => {
     if (!apiJob) return null;
-    
-    const stages = typeof apiJob.stages === 'string' 
-      ? JSON.parse(apiJob.stages) 
+
+    const stages = typeof apiJob.stages === 'string'
+      ? JSON.parse(apiJob.stages)
       : apiJob.stages;
 
     return {
@@ -166,13 +166,13 @@ export default function JobCard() {
     };
   }, [apiJob]);
 
-  const openIssues = useMemo(() => 
-    issues?.filter(i => i.status === 'open') || [], 
+  const openIssues = useMemo(() =>
+    issues?.filter(i => i.status === 'open') || [],
     [issues]
   );
 
-  const resolvedIssues = useMemo(() => 
-    issues?.filter(i => i.status === 'resolved') || [], 
+  const resolvedIssues = useMemo(() =>
+    issues?.filter(i => i.status === 'resolved') || [],
     [issues]
   );
 
@@ -222,8 +222,8 @@ export default function JobCard() {
     const allMediaUrls = [
       ...issueMediaUrls,
       ...issueMediaFiles.map(f => {
-        if (f.objectPath) {
-          return `${f.objectPath}#${f.type}`;
+        if (f.uploadURL) {
+          return `${f.uploadURL}#${f.type}`;
         }
         return f.dataUrl;
       })
@@ -303,7 +303,7 @@ export default function JobCard() {
     if (direction === 'next' && job.currentStage < 11) {
       const checklistToValidate = localChecklist || updatedStages[job.currentStage - 1].checklist;
       const allChecked = checklistToValidate.every((item: any) => item.checked);
-      
+
       if (!allChecked) {
         toast({
           variant: "destructive",
@@ -312,22 +312,22 @@ export default function JobCard() {
         });
         return;
       }
-      
+
       updatedStages[job.currentStage - 1] = {
         ...updatedStages[job.currentStage - 1],
         status: 'completed',
         completedAt: new Date().toISOString(),
         checklist: localChecklist || updatedStages[job.currentStage - 1].checklist
       };
-      
+
       newStageNo++;
-      
+
       updatedStages[newStageNo - 1] = {
         ...updatedStages[newStageNo - 1],
         status: 'in-progress',
         startedAt: new Date().toISOString()
       };
-      
+
       setViewingStageIndex(null);
     } else if (direction === 'prev' && job.currentStage > 1) {
       updatedStages[job.currentStage - 1] = {
@@ -339,7 +339,7 @@ export default function JobCard() {
         ...updatedStages[newStageNo - 1],
         status: 'in-progress'
       };
-      
+
       setViewingStageIndex(null);
     }
 
@@ -404,7 +404,7 @@ export default function JobCard() {
       status: 'completed',
       completedAt: new Date().toISOString()
     };
-    
+
     updateJob.mutate(
       {
         id: job.id,
@@ -453,22 +453,22 @@ export default function JobCard() {
             <p className="text-muted-foreground text-sm sm:text-base truncate">{job.jobNo} • {job.package}</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0">
-           <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                 <HardHat className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </div>
-              <div className="min-w-0">
-                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Installer</p>
-                 <p className="text-xs sm:text-sm font-medium truncate">{assignedUser ? assignedUser.name : "Unassigned"}</p>
-              </div>
-           </div>
 
-           <div className="text-right hidden md:block">
-              <p className="text-sm font-medium">Promised Delivery</p>
-              <p className="text-xs text-muted-foreground">{format(new Date(job.promisedDate), 'PPP p')}</p>
-           </div>
+        <div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <HardHat className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Installer</p>
+              <p className="text-xs sm:text-sm font-medium truncate">{assignedUser ? assignedUser.name : "Unassigned"}</p>
+            </div>
+          </div>
+
+          <div className="text-right hidden md:block">
+            <p className="text-sm font-medium">Promised Delivery</p>
+            <p className="text-xs text-muted-foreground">{format(new Date(job.promisedDate), 'PPP p')}</p>
+          </div>
         </div>
       </div>
 
@@ -488,8 +488,8 @@ export default function JobCard() {
           <CardContent className="py-2">
             <div className="space-y-2">
               {openIssues.map((issue) => (
-                <div 
-                  key={issue.id} 
+                <div
+                  key={issue.id}
                   className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/50 cursor-pointer hover:border-primary/30"
                   onClick={() => setSelectedIssue(issue)}
                   data-testid={`issue-${issue.id}`}
@@ -531,71 +531,71 @@ export default function JobCard() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
-               <ScrollArea className="h-full px-6 pb-6">
-                  <div className="space-y-6 relative">
-                     <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-border/50 -z-10" />
-                     
-                     {job.stages.map((stage: any, index: number) => {
-                        const stageIssues = issues?.filter(i => i.stageId === stage.id && i.status === 'open') || [];
-                        const hasStageCriticalIssues = stageIssues.some(i => i.severity === 'critical');
-                        const isViewing = viewingStageIndex === index;
-                        const isAllChecked = stage.checklist.every((item: any) => item.checked);
-                        const isPastStage = stage.id < job.currentStage;
-                        const effectiveStatus = (isPastStage && isAllChecked) ? 'completed' : stage.status;
-                        return (
-                          <div 
-                            key={stage.id} 
-                            className={cn(
-                              "group flex gap-4 transition-all cursor-pointer hover:bg-secondary/30 rounded-lg p-2 -mx-2",
-                              stage.id > job.currentStage && "opacity-50",
-                              isViewing && "bg-primary/10 ring-1 ring-primary/30"
-                            )}
-                            onClick={() => setViewingStageIndex(index)}
-                            data-testid={`stage-${stage.id}`}
-                          >
-                             <div className={cn(
-                                "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors relative",
-                                effectiveStatus === 'completed' ? "border-green-500 text-green-500" :
-                                hasStageCriticalIssues ? "border-red-500 text-red-500 bg-red-500/10" :
-                                effectiveStatus === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
+              <ScrollArea className="h-full px-6 pb-6">
+                <div className="space-y-6 relative">
+                  <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-border/50 -z-10" />
+
+                  {job.stages.map((stage: any, index: number) => {
+                    const stageIssues = issues?.filter(i => i.stageId === stage.id && i.status === 'open') || [];
+                    const hasStageCriticalIssues = stageIssues.some(i => i.severity === 'critical');
+                    const isViewing = viewingStageIndex === index;
+                    const isAllChecked = stage.checklist.every((item: any) => item.checked);
+                    const isPastStage = stage.id < job.currentStage;
+                    const effectiveStatus = (isPastStage && isAllChecked) ? 'completed' : stage.status;
+                    return (
+                      <div
+                        key={stage.id}
+                        className={cn(
+                          "group flex gap-4 transition-all cursor-pointer hover:bg-secondary/30 rounded-lg p-2 -mx-2",
+                          stage.id > job.currentStage && "opacity-50",
+                          isViewing && "bg-primary/10 ring-1 ring-primary/30"
+                        )}
+                        onClick={() => setViewingStageIndex(index)}
+                        data-testid={`stage-${stage.id}`}
+                      >
+                        <div className={cn(
+                          "w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-background transition-colors relative",
+                          effectiveStatus === 'completed' ? "border-green-500 text-green-500" :
+                            hasStageCriticalIssues ? "border-red-500 text-red-500 bg-red-500/10" :
+                              effectiveStatus === 'in-progress' ? "border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]" :
                                 stageIssues.length > 0 ? "border-amber-500 text-amber-500" :
-                                "border-muted-foreground text-muted-foreground"
-                             )}>
-                                {effectiveStatus === 'completed' ? <CheckCircle2 className="w-5 h-5" /> : 
-                                 hasStageCriticalIssues ? <AlertTriangle className="w-4 h-4" /> :
-                                 <span className="text-xs font-bold">{stage.id}</span>}
-                                {stageIssues.length > 0 && (
-                                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full text-[10px] text-destructive-foreground flex items-center justify-center font-bold">
-                                    {stageIssues.length}
-                                  </span>
-                                )}
-                             </div>
-                             <div className="pt-1 flex-1">
-                                <h4 className={cn("font-medium text-sm leading-none mb-1", 
-                                  stage.id === job.currentStage && "text-primary",
-                                  hasStageCriticalIssues && "text-destructive"
-                                )}>
-                                   {stage.name}
-                                </h4>
-                                {effectiveStatus === 'completed' && (stage.completedAt || isPastStage) && (
-                                   <p className="text-[10px] text-muted-foreground">Done: {stage.completedAt ? format(new Date(stage.completedAt), 'MMM d, h:mm a') : 'Completed'}</p>
-                                )}
-                                {effectiveStatus === 'in-progress' && !hasStageCriticalIssues && (
-                                   <Badge variant="secondary" className="mt-1 text-[10px] bg-primary/10 text-primary border-primary/20">In Progress</Badge>
-                                )}
-                                {hasStageCriticalIssues && (
-                                   <Badge variant="destructive" className="mt-1 text-[10px]">{stageIssues.length} Critical Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
-                                )}
-                                {stageIssues.length > 0 && !hasStageCriticalIssues && (
-                                   <Badge variant="outline" className="mt-1 text-[10px] border-amber-500/50 text-amber-500">{stageIssues.length} Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
-                                )}
-                             </div>
-                             <ChevronRight className={cn("w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity self-center", isViewing && "opacity-100 text-primary")} />
-                          </div>
-                        );
-                     })}
-                  </div>
-               </ScrollArea>
+                                  "border-muted-foreground text-muted-foreground"
+                        )}>
+                          {effectiveStatus === 'completed' ? <CheckCircle2 className="w-5 h-5" /> :
+                            hasStageCriticalIssues ? <AlertTriangle className="w-4 h-4" /> :
+                              <span className="text-xs font-bold">{stage.id}</span>}
+                          {stageIssues.length > 0 && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full text-[10px] text-destructive-foreground flex items-center justify-center font-bold">
+                              {stageIssues.length}
+                            </span>
+                          )}
+                        </div>
+                        <div className="pt-1 flex-1">
+                          <h4 className={cn("font-medium text-sm leading-none mb-1",
+                            stage.id === job.currentStage && "text-primary",
+                            hasStageCriticalIssues && "text-destructive"
+                          )}>
+                            {stage.name}
+                          </h4>
+                          {effectiveStatus === 'completed' && (stage.completedAt || isPastStage) && (
+                            <p className="text-[10px] text-muted-foreground">Done: {stage.completedAt ? format(new Date(stage.completedAt), 'MMM d, h:mm a') : 'Completed'}</p>
+                          )}
+                          {effectiveStatus === 'in-progress' && !hasStageCriticalIssues && (
+                            <Badge variant="secondary" className="mt-1 text-[10px] bg-primary/10 text-primary border-primary/20">In Progress</Badge>
+                          )}
+                          {hasStageCriticalIssues && (
+                            <Badge variant="destructive" className="mt-1 text-[10px]">{stageIssues.length} Critical Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
+                          )}
+                          {stageIssues.length > 0 && !hasStageCriticalIssues && (
+                            <Badge variant="outline" className="mt-1 text-[10px] border-amber-500/50 text-amber-500">{stageIssues.length} Issue{stageIssues.length > 1 ? 's' : ''}</Badge>
+                          )}
+                        </div>
+                        <ChevronRight className={cn("w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity self-center", isViewing && "opacity-100 text-primary")} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
 
@@ -611,8 +611,8 @@ export default function JobCard() {
                 <ScrollArea className="max-h-[200px]">
                   <div className="space-y-2">
                     {resolvedIssues.map((issue) => (
-                      <div 
-                        key={issue.id} 
+                      <div
+                        key={issue.id}
                         className="flex items-start gap-2 p-2 rounded-lg bg-green-500/5 border border-green-500/10 text-sm cursor-pointer hover:bg-green-500/10"
                         onClick={() => setSelectedIssue(issue)}
                       >
@@ -631,116 +631,116 @@ export default function JobCard() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-           {(() => {
-             const activeStageIndex = viewingStageIndex !== null ? viewingStageIndex : job.currentStage - 1;
-             const activeStage = job.stages[activeStageIndex];
-             const isCurrentStage = activeStageIndex === job.currentStage - 1;
-             const stageIssues = issues?.filter(i => i.stageId === activeStage.id && i.status === 'open') || [];
-             const stageHasCriticalIssues = stageIssues.some(i => i.severity === 'critical');
-             return (
-               <StageDetailView 
-                  jobId={job.id} 
-                  stage={activeStage} 
-                  teamMembers={users || []}
-                  onComplete={(checklist) => moveJobStage('next', checklist)}
-                  onUpdate={(data) => updateJobStage(activeStage.id, data)}
-                  onReportIssue={() => setIsIssueModalOpen(true)}
-                  isBlocked={stageHasCriticalIssues}
-                  currentStageIssueCount={stageIssues.length}
-                  currentUserName={authUser?.name || 'User'}
-                  isCurrentStage={isCurrentStage}
-                  onBackToCurrentStage={() => setViewingStageIndex(null)}
-                  onMarkAsDelivered={markAsDelivered}
-                  isJobCompleted={job.status === 'completed'}
-                  isJobDelivered={job.status === 'delivered'}
-               />
-             );
-           })()}
-           
-           {job.status === 'delivered' && (
-             <Card className="glass-card border-green-500/20">
-               <CardHeader className="border-b border-border/50 bg-green-500/5">
-                 <div className="flex items-center gap-2">
-                   <CheckCircle2 className="w-5 h-5 text-green-500" />
-                   <CardTitle className="text-xl text-green-500">Complete Job Documentation</CardTitle>
-                 </div>
-                 <CardDescription>All photos, notes, and media captured during the workflow</CardDescription>
-               </CardHeader>
-               <CardContent className="p-6 space-y-6">
-                 {job.stages.map((stage: any) => {
-                   const hasPhotos = stage.photos && stage.photos.length > 0;
-                   const hasComments = stage.comments && stage.comments.length > 0;
-                   const hasPpfDetails = stage.id === 7 && stage.ppfDetails && (stage.ppfDetails.brand || stage.ppfDetails.rollImages?.length > 0);
-                   
-                   if (!hasPhotos && !hasComments && !hasPpfDetails) return null;
-                   
-                   return (
-                     <div key={stage.id} className="space-y-3">
-                       <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider border-b border-border/50 pb-2">
-                         Stage {stage.id}: {stage.name}
-                       </h4>
-                       
-                       {hasPpfDetails && (
-                         <div className="bg-primary/5 rounded-lg p-3 space-y-2">
-                           <p className="text-sm font-medium text-primary">PPF Details</p>
-                           {stage.ppfDetails.brand && <p className="text-sm">Brand: {stage.ppfDetails.brand}</p>}
-                           {stage.ppfDetails.rollId && <p className="text-sm">Roll ID: {stage.ppfDetails.rollId}</p>}
-                           {stage.ppfDetails.rollImages && stage.ppfDetails.rollImages.length > 0 && (
-                             <div className="flex flex-wrap gap-2 mt-2">
-                               {stage.ppfDetails.rollImages.map((img: string, idx: number) => (
-                                 <img key={idx} src={img} alt={`PPF Roll ${idx + 1}`} className="w-20 h-20 object-cover rounded-md border border-border" />
-                               ))}
-                             </div>
-                           )}
-                         </div>
-                       )}
-                       
-                       {hasPhotos && (
-                         <div className="space-y-2">
-                           <p className="text-sm font-medium flex items-center gap-2">
-                             <Camera className="w-4 h-4" /> Photos ({stage.photos.length})
-                           </p>
-                           <div className="flex flex-wrap gap-2">
-                             {stage.photos.map((photo: string, idx: number) => (
-                               <a key={idx} href={photo} target="_blank" rel="noopener noreferrer">
-                                 <img 
-                                   src={photo} 
-                                   alt={`Stage ${stage.id} Photo ${idx + 1}`} 
-                                   className="w-24 h-24 object-cover rounded-lg border border-border hover:border-primary transition-colors"
-                                 />
-                               </a>
-                             ))}
-                           </div>
-                         </div>
-                       )}
-                       
-                       {hasComments && (
-                         <div className="space-y-2">
-                           <p className="text-sm font-medium flex items-center gap-2">
-                             <StickyNote className="w-4 h-4" /> Notes ({stage.comments.length})
-                           </p>
-                           <div className="space-y-2">
-                             {stage.comments.map((comment: any) => (
-                               <div key={comment.id} className="bg-secondary/30 rounded-lg p-3 text-sm">
-                                 <p>{comment.text}</p>
-                                 <p className="text-xs text-muted-foreground mt-1">
-                                   — {comment.author}, {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
-                                 </p>
-                               </div>
-                             ))}
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   );
-                 })}
-                 
-                 {job.stages.every((s: any) => (!s.photos || s.photos.length === 0) && (!s.comments || s.comments.length === 0)) && (
-                   <p className="text-center text-muted-foreground py-8">No photos or notes were captured during this job.</p>
-                 )}
-               </CardContent>
-             </Card>
-           )}
+          {(() => {
+            const activeStageIndex = viewingStageIndex !== null ? viewingStageIndex : job.currentStage - 1;
+            const activeStage = job.stages[activeStageIndex];
+            const isCurrentStage = activeStageIndex === job.currentStage - 1;
+            const stageIssues = issues?.filter(i => i.stageId === activeStage.id && i.status === 'open') || [];
+            const stageHasCriticalIssues = stageIssues.some(i => i.severity === 'critical');
+            return (
+              <StageDetailView
+                jobId={job.id}
+                stage={activeStage}
+                teamMembers={users || []}
+                onComplete={(checklist) => moveJobStage('next', checklist)}
+                onUpdate={(data) => updateJobStage(activeStage.id, data)}
+                onReportIssue={() => setIsIssueModalOpen(true)}
+                isBlocked={stageHasCriticalIssues}
+                currentStageIssueCount={stageIssues.length}
+                currentUserName={authUser?.name || 'User'}
+                isCurrentStage={isCurrentStage}
+                onBackToCurrentStage={() => setViewingStageIndex(null)}
+                onMarkAsDelivered={markAsDelivered}
+                isJobCompleted={job.status === 'completed'}
+                isJobDelivered={job.status === 'delivered'}
+              />
+            );
+          })()}
+
+          {job.status === 'delivered' && (
+            <Card className="glass-card border-green-500/20">
+              <CardHeader className="border-b border-border/50 bg-green-500/5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <CardTitle className="text-xl text-green-500">Complete Job Documentation</CardTitle>
+                </div>
+                <CardDescription>All photos, notes, and media captured during the workflow</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {job.stages.map((stage: any) => {
+                  const hasPhotos = stage.photos && stage.photos.length > 0;
+                  const hasComments = stage.comments && stage.comments.length > 0;
+                  const hasPpfDetails = stage.id === 7 && stage.ppfDetails && (stage.ppfDetails.brand || stage.ppfDetails.rollImages?.length > 0);
+
+                  if (!hasPhotos && !hasComments && !hasPpfDetails) return null;
+
+                  return (
+                    <div key={stage.id} className="space-y-3">
+                      <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider border-b border-border/50 pb-2">
+                        Stage {stage.id}: {stage.name}
+                      </h4>
+
+                      {hasPpfDetails && (
+                        <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+                          <p className="text-sm font-medium text-primary">PPF Details</p>
+                          {stage.ppfDetails.brand && <p className="text-sm">Brand: {stage.ppfDetails.brand}</p>}
+                          {stage.ppfDetails.rollId && <p className="text-sm">Roll ID: {stage.ppfDetails.rollId}</p>}
+                          {stage.ppfDetails.rollImages && stage.ppfDetails.rollImages.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {stage.ppfDetails.rollImages.map((img: string, idx: number) => (
+                                <img key={idx} src={img} alt={`PPF Roll ${idx + 1}`} className="w-20 h-20 object-cover rounded-md border border-border" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {hasPhotos && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium flex items-center gap-2">
+                            <Camera className="w-4 h-4" /> Photos ({stage.photos.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {stage.photos.map((photo: string, idx: number) => (
+                              <a key={idx} href={photo} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={photo}
+                                  alt={`Stage ${stage.id} Photo ${idx + 1}`}
+                                  className="w-24 h-24 object-cover rounded-lg border border-border hover:border-primary transition-colors"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {hasComments && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium flex items-center gap-2">
+                            <StickyNote className="w-4 h-4" /> Notes ({stage.comments.length})
+                          </p>
+                          <div className="space-y-2">
+                            {stage.comments.map((comment: any) => (
+                              <div key={comment.id} className="bg-secondary/30 rounded-lg p-3 text-sm">
+                                <p>{comment.text}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  — {comment.author}, {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {job.stages.every((s: any) => (!s.photos || s.photos.length === 0) && (!s.comments || s.comments.length === 0)) && (
+                  <p className="text-center text-muted-foreground py-8">No photos or notes were captured during this job.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -792,8 +792,8 @@ export default function JobCard() {
 
             <div className="space-y-2">
               <Label>Location on Vehicle</Label>
-              <Input 
-                placeholder="e.g., Left front fender, Hood center, Rear bumper..." 
+              <Input
+                placeholder="e.g., Left front fender, Hood center, Rear bumper..."
                 value={issueLocation}
                 onChange={(e) => setIssueLocation(e.target.value)}
                 data-testid="input-issue-location"
@@ -802,8 +802,8 @@ export default function JobCard() {
 
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea 
-                placeholder="Describe the issue in detail..." 
+              <Textarea
+                placeholder="Describe the issue in detail..."
                 value={issueDescription}
                 onChange={(e) => setIssueDescription(e.target.value)}
                 className="min-h-[100px]"
@@ -813,14 +813,14 @@ export default function JobCard() {
 
             <div className="space-y-3">
               <Label>Attach Media</Label>
-              
+
               <input type="file" ref={photoFileInputRef} accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, 'photo')} multiple />
               <input type="file" ref={cameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'photo')} />
               <input type="file" ref={videoFileInputRef} accept="video/*" className="hidden" onChange={(e) => handleFileSelect(e, 'video')} multiple />
               <input type="file" ref={videoCameraInputRef} accept="video/*" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'video')} />
               <input type="file" ref={audioFileInputRef} accept="audio/*" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} multiple />
               <input type="file" ref={audioRecordInputRef} accept="audio/*" capture="user" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} />
-              
+
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                   <CameraIcon className="w-4 h-4" />
@@ -837,7 +837,7 @@ export default function JobCard() {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <VideoIcon className="w-4 h-4" />
@@ -854,7 +854,7 @@ export default function JobCard() {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <MicIcon className="w-4 h-4" />
@@ -871,7 +871,7 @@ export default function JobCard() {
                   </Button>
                 </div>
               </div>
-              
+
               {issueMediaFiles.length > 0 && (
                 <div className="mt-3 space-y-2">
                   <Label className="text-xs text-muted-foreground">Attached Files ({issueMediaFiles.length})</Label>
@@ -893,7 +893,7 @@ export default function JobCard() {
                             <span className="absolute bottom-1 text-[10px] text-muted-foreground">Audio</span>
                           </div>
                         )}
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setIssueMediaFiles(issueMediaFiles.filter((_, i) => i !== idx))}
                           className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -971,12 +971,12 @@ export default function JobCard() {
                         const cleanUrl = url.split('#')[0];
                         const isVideo = url.startsWith('data:video') || hashType === 'video';
                         const isAudio = url.startsWith('data:audio') || hashType === 'audio';
-                        
+
                         if (isVideo) {
                           return (
-                            <video 
+                            <video
                               key={idx}
-                              src={cleanUrl} 
+                              src={cleanUrl}
                               controls
                               className="w-32 h-24 rounded-md border border-border bg-black"
                             />
@@ -984,9 +984,9 @@ export default function JobCard() {
                         }
                         if (isAudio) {
                           return (
-                            <audio 
+                            <audio
                               key={idx}
-                              src={cleanUrl} 
+                              src={cleanUrl}
                               controls
                               className="w-48 h-10"
                             />
@@ -994,9 +994,9 @@ export default function JobCard() {
                         }
                         return (
                           <a key={idx} href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={cleanUrl} 
-                              alt={`Attachment ${idx + 1}`} 
+                            <img
+                              src={cleanUrl}
+                              alt={`Attachment ${idx + 1}`}
                               className="w-24 h-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
                             />
                           </a>
@@ -1022,9 +1022,9 @@ export default function JobCard() {
   );
 }
 
-function StageDetailView({ 
-  jobId, 
-  stage, 
+function StageDetailView({
+  jobId,
+  stage,
   onComplete,
   onUpdate,
   teamMembers,
@@ -1037,9 +1037,9 @@ function StageDetailView({
   onMarkAsDelivered,
   isJobCompleted = false,
   isJobDelivered = false
-}: { 
-  jobId: string; 
-  stage: JobStage; 
+}: {
+  jobId: string;
+  stage: JobStage;
   onComplete: (checklist: { item: string; checked: boolean }[]) => void;
   onUpdate: (data: Partial<JobStage>) => void;
   teamMembers: any[];
@@ -1055,13 +1055,13 @@ function StageDetailView({
 }) {
   const [localChecklist, setLocalChecklist] = useState(stage.checklist);
   const { uploadFile } = useUpload();
-  
+
   useEffect(() => {
     setLocalChecklist(stage.checklist);
   }, [stage.id]);
-  
+
   const isAllChecked = localChecklist.every(item => item.checked);
-  
+
   const debouncedUpdate = useCallback(
     debounce((data: Partial<JobStage>) => onUpdate(data), 500),
     [onUpdate]
@@ -1075,32 +1075,32 @@ function StageDetailView({
   const [ppfRollImages, setPpfRollImages] = useState<string[]>(
     stage.ppfDetails?.rollImages || (stage.ppfDetails?.rollImage ? [stage.ppfDetails.rollImage] : [])
   );
-  
+
   const isPpfStage = stage.id === 7;
   const ppfDetailsComplete = !isPpfStage || (ppfBrand.trim() !== '' && ppfRollId.trim() !== '') || ppfRollImages.length > 0;
-  
+
   const [ppfDetailsSaved, setPpfDetailsSaved] = useState(!!stage.ppfDetails?.brand || (stage.ppfDetails?.rollImages && stage.ppfDetails.rollImages.length > 0) || !!stage.ppfDetails?.rollImage);
-  
+
   const savePpfDetails = () => {
-    onUpdate({ 
-      ppfDetails: { 
-        brand: ppfBrand.trim(), 
-        rollId: ppfRollId.trim(), 
-        rollImages: ppfRollImages 
-      } 
+    onUpdate({
+      ppfDetails: {
+        brand: ppfBrand.trim(),
+        rollId: ppfRollId.trim(),
+        rollImages: ppfRollImages
+      }
     });
     setPpfDetailsSaved(true);
   };
-  
+
   const handlePpfRollImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
+
     for (const file of Array.from(files)) {
       try {
         const result = await uploadFile(file);
         if (result) {
-          setPpfRollImages(prev => [...prev, result.objectPath]);
+          setPpfRollImages(prev => [...prev, result.uploadURL]);
         }
       } catch {
         console.error('Failed to upload PPF roll image');
@@ -1108,13 +1108,13 @@ function StageDetailView({
     }
     e.target.value = '';
   };
-  
+
   const removePpfRollImage = (index: number) => {
     setPpfRollImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const toggleCheck = (index: number) => {
-    const newChecklist = localChecklist.map((item, i) => 
+    const newChecklist = localChecklist.map((item, i) =>
       i === index ? { ...item, checked: !item.checked } : item
     );
     setLocalChecklist(newChecklist);
@@ -1124,13 +1124,13 @@ function StageDetailView({
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
+
     for (const file of Array.from(files)) {
       try {
         const result = await uploadFile(file);
         if (result) {
           const currentPhotos = stage.photos || [];
-          onUpdate({ photos: [...currentPhotos, result.objectPath] });
+          onUpdate({ photos: [...currentPhotos, result.uploadURL] });
         }
       } catch {
         console.error('Failed to upload stage photo');
@@ -1168,320 +1168,320 @@ function StageDetailView({
       currentStageIssueCount > 0 && "border-amber-500/30 shadow-amber-500/5"
     )}>
       <CardHeader className="border-b border-border/50 bg-white/5 pb-4">
-         <div className="flex items-center justify-between">
-            <div>
-               <p className={cn(
-                 "text-sm font-medium mb-1",
-                 !isCurrentStage ? "text-muted-foreground" :
-                 currentStageIssueCount > 0 ? "text-amber-500" : "text-primary"
-               )}>
-                 {!isCurrentStage ? (
-                   <span className="flex items-center gap-2">
-                     VIEWING STAGE
-                     {onBackToCurrentStage && (
-                       <Button variant="link" size="sm" className="h-auto p-0 text-primary" onClick={onBackToCurrentStage}>
-                         Back to Current Stage
-                       </Button>
-                     )}
-                   </span>
-                 ) : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
-               </p>
-               <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={cn(
+              "text-sm font-medium mb-1",
+              !isCurrentStage ? "text-muted-foreground" :
+                currentStageIssueCount > 0 ? "text-amber-500" : "text-primary"
+            )}>
+              {!isCurrentStage ? (
+                <span className="flex items-center gap-2">
+                  VIEWING STAGE
+                  {onBackToCurrentStage && (
+                    <Button variant="link" size="sm" className="h-auto p-0 text-primary" onClick={onBackToCurrentStage}>
+                      Back to Current Stage
+                    </Button>
+                  )}
+                </span>
+              ) : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
+            </p>
+            <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="w-4 h-4" />
+              <span>Stage Assigned to:</span>
+              <Select
+                value={stage.assignedTo}
+                onValueChange={(val) => onUpdate({ assignedTo: val })}
+              >
+                <SelectTrigger className="w-[180px] h-8 text-xs border-none bg-transparent focus:ring-0 px-0 justify-end font-medium text-foreground">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex flex-col items-end gap-1">
-               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="w-4 h-4" />
-                  <span>Stage Assigned to:</span>
-                  <Select 
-                    value={stage.assignedTo} 
-                    onValueChange={(val) => onUpdate({ assignedTo: val })}
-                  >
-                    <SelectTrigger className="w-[180px] h-8 text-xs border-none bg-transparent focus:ring-0 px-0 justify-end font-medium text-foreground">
-                      <SelectValue placeholder="Unassigned" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map(m => (
-                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-               </div>
-               {stage.startedAt && (
-                  <p className="text-xs text-muted-foreground">Started: {format(new Date(stage.startedAt), 'h:mm a')}</p>
-               )}
-            </div>
-         </div>
+            {stage.startedAt && (
+              <p className="text-xs text-muted-foreground">Started: {format(new Date(stage.startedAt), 'h:mm a')}</p>
+            )}
+          </div>
+        </div>
       </CardHeader>
 
       <CardContent className="flex-1 p-0 relative">
-         <Tabs key={`stage-${stage.id}`} defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
-            <div className="px-6 py-2 border-b border-border/50">
-               <TabsList className={cn("grid w-full", isPpfStage ? "max-w-[500px] grid-cols-3" : "max-w-[400px] grid-cols-2")}>
-                  {isPpfStage && (
-                    <TabsTrigger value="ppf-details" className="relative">
-                      PPF Details
-                      {ppfDetailsComplete && <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />}
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger value="checklist" disabled={isPpfStage && !ppfDetailsComplete}>
-                    Checklist ({localChecklist.filter(i => i.checked).length}/{localChecklist.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="photos">Photos & Notes</TabsTrigger>
-               </TabsList>
-            </div>
-            
-            {isPpfStage && (
-              <TabsContent value="ppf-details" className="flex-1 p-6 space-y-6">
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                  <p className="text-sm text-primary font-medium mb-1">PPF Film Information Required</p>
-                  <p className="text-xs text-muted-foreground">Enter the PPF brand and roll ID, or attach a photo of the roll label before proceeding to the checklist.</p>
+        <Tabs key={`stage-${stage.id}`} defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
+          <div className="px-6 py-2 border-b border-border/50">
+            <TabsList className={cn("grid w-full", isPpfStage ? "max-w-[500px] grid-cols-3" : "max-w-[400px] grid-cols-2")}>
+              {isPpfStage && (
+                <TabsTrigger value="ppf-details" className="relative">
+                  PPF Details
+                  {ppfDetailsComplete && <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="checklist" disabled={isPpfStage && !ppfDetailsComplete}>
+                Checklist ({localChecklist.filter(i => i.checked).length}/{localChecklist.length})
+              </TabsTrigger>
+              <TabsTrigger value="photos">Photos & Notes</TabsTrigger>
+            </TabsList>
+          </div>
+
+          {isPpfStage && (
+            <TabsContent value="ppf-details" className="flex-1 p-6 space-y-6">
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <p className="text-sm text-primary font-medium mb-1">PPF Film Information Required</p>
+                <p className="text-xs text-muted-foreground">Enter the PPF brand and roll ID, or attach a photo of the roll label before proceeding to the checklist.</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>PPF Brand *</Label>
+                  <Input
+                    placeholder="e.g., XPEL, 3M, SunTek, Llumar..."
+                    value={ppfBrand}
+                    onChange={(e) => setPpfBrand(e.target.value)}
+                    className="bg-secondary/50"
+                    data-testid="input-ppf-brand"
+                  />
                 </div>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>PPF Brand *</Label>
-                    <Input 
-                      placeholder="e.g., XPEL, 3M, SunTek, Llumar..." 
-                      value={ppfBrand}
-                      onChange={(e) => setPpfBrand(e.target.value)}
-                      className="bg-secondary/50"
-                      data-testid="input-ppf-brand"
-                    />
+
+                <div className="space-y-2">
+                  <Label>PPF Roll ID *</Label>
+                  <Input
+                    placeholder="Enter roll ID or batch number..."
+                    value={ppfRollId}
+                    onChange={(e) => setPpfRollId(e.target.value)}
+                    className="bg-secondary/50"
+                    data-testid="input-ppf-roll-id"
+                  />
+                </div>
+
+                <div className="text-center text-sm text-muted-foreground py-2">— OR —</div>
+
+                <div className="space-y-2">
+                  <Label>Attach Roll Label Photo</Label>
+                  <input type="file" ref={ppfRollImageInputRef} accept="image/*" className="hidden" onChange={handlePpfRollImageSelect} multiple />
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {ppfRollImages.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border">
+                        <img src={img} alt={`PPF Roll ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removePpfRollImage(idx)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3 text-white" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      onClick={() => ppfRollImageInputRef.current?.click()}
+                      className="aspect-square flex flex-col items-center justify-center gap-2 border-dashed"
+                      data-testid="button-ppf-roll-image"
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-xs">Add Photo</span>
+                    </Button>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label>PPF Roll ID *</Label>
-                    <Input 
-                      placeholder="Enter roll ID or batch number..." 
-                      value={ppfRollId}
-                      onChange={(e) => setPpfRollId(e.target.value)}
-                      className="bg-secondary/50"
-                      data-testid="input-ppf-roll-id"
-                    />
+                </div>
+              </div>
+
+              {ppfDetailsSaved ? (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+                  <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm text-green-500 font-medium">PPF Details Saved</p>
+                  <p className="text-xs text-muted-foreground mt-1">You can now proceed to the Checklist tab</p>
+                </div>
+              ) : (
+                <Button
+                  onClick={savePpfDetails}
+                  disabled={!ppfDetailsComplete}
+                  className="w-full"
+                  data-testid="button-save-ppf-details"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {ppfDetailsComplete ? 'Save PPF Details' : 'Complete Required Fields'}
+                </Button>
+              )}
+            </TabsContent>
+          )}
+
+          <TabsContent value="checklist" className="flex-1 p-6 space-y-4">
+            {localChecklist.map((item, idx) => (
+              <div key={idx}
+                className={cn(
+                  "flex items-center space-x-3 p-4 rounded-xl border transition-all cursor-pointer",
+                  item.checked
+                    ? "bg-green-500/5 border-green-500/20"
+                    : "bg-secondary/50 border-transparent hover:bg-secondary hover:border-border"
+                )}
+                onClick={() => toggleCheck(idx)}
+              >
+                <Checkbox checked={item.checked} className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500" />
+                <label className={cn("text-sm font-medium leading-none cursor-pointer flex-1", item.checked && "text-muted-foreground line-through")}>
+                  {item.item}
+                </label>
+              </div>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="photos" className="flex-1 p-6 space-y-6">
+            <input type="file" ref={stagePhotoInputRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} multiple />
+            <input type="file" ref={stageCameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
+
+            <div>
+              <Label className="mb-2 block flex items-center gap-2"><Camera className="w-4 h-4" /> Stage Photos ({stage.photos?.length || 0})</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(stage.photos || []).map((photo, i) => (
+                  <div key={i} className="relative aspect-square rounded-lg bg-secondary border border-border overflow-hidden group">
+                    <img src={photo} alt={`Stage photo ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removePhoto(i)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
                   </div>
-                  
-                  <div className="text-center text-sm text-muted-foreground py-2">— OR —</div>
-                  
+                ))}
+                <div className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => stageCameraInputRef.current?.click()}
+                      className="p-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                      data-testid="button-stage-camera"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => stagePhotoInputRef.current?.click()}
+                      className="p-3 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                      data-testid="button-stage-files"
+                    >
+                      <Folder className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">Camera / Files</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes & Comments ({(stage.comments || []).length})</Label>
+
+              {(stage.comments || []).length > 0 && (
+                <ScrollArea className="max-h-[150px] pr-2">
                   <div className="space-y-2">
-                    <Label>Attach Roll Label Photo</Label>
-                    <input type="file" ref={ppfRollImageInputRef} accept="image/*" className="hidden" onChange={handlePpfRollImageSelect} multiple />
-                    
-                    <div className="grid grid-cols-3 gap-3">
-                      {ppfRollImages.map((img, idx) => (
-                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border">
-                          <img src={img} alt={`PPF Roll ${idx + 1}`} className="w-full h-full object-cover" />
-                          <button 
-                            onClick={() => removePpfRollImage(idx)}
-                            className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                    {(stage.comments || []).map((comment) => (
+                      <div key={comment.id} className="bg-secondary/50 rounded-lg p-3 group relative">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm">{comment.text}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {comment.author} • {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeComment(comment.id)}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
                           >
-                            <X className="w-3 h-3 text-white" />
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
-                      ))}
-                      
-                      <Button 
-                        variant="outline" 
-                        onClick={() => ppfRollImageInputRef.current?.click()}
-                        className="aspect-square flex flex-col items-center justify-center gap-2 border-dashed"
-                        data-testid="button-ppf-roll-image"
-                      >
-                        <Camera className="w-5 h-5" />
-                        <span className="text-xs">Add Photo</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                
-                {ppfDetailsSaved ? (
-                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
-                    <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                    <p className="text-sm text-green-500 font-medium">PPF Details Saved</p>
-                    <p className="text-xs text-muted-foreground mt-1">You can now proceed to the Checklist tab</p>
-                  </div>
-                ) : (
-                  <Button 
-                    onClick={savePpfDetails} 
-                    disabled={!ppfDetailsComplete}
-                    className="w-full"
-                    data-testid="button-save-ppf-details"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    {ppfDetailsComplete ? 'Save PPF Details' : 'Complete Required Fields'}
-                  </Button>
-                )}
-              </TabsContent>
-            )}
-
-            <TabsContent value="checklist" className="flex-1 p-6 space-y-4">
-               {localChecklist.map((item, idx) => (
-                  <div key={idx} 
-                       className={cn(
-                          "flex items-center space-x-3 p-4 rounded-xl border transition-all cursor-pointer",
-                          item.checked 
-                             ? "bg-green-500/5 border-green-500/20" 
-                             : "bg-secondary/50 border-transparent hover:bg-secondary hover:border-border"
-                       )}
-                       onClick={() => toggleCheck(idx)}
-                  >
-                     <Checkbox checked={item.checked} className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500" />
-                     <label className={cn("text-sm font-medium leading-none cursor-pointer flex-1", item.checked && "text-muted-foreground line-through")}>
-                        {item.item}
-                     </label>
-                  </div>
-               ))}
-            </TabsContent>
-            
-            <TabsContent value="photos" className="flex-1 p-6 space-y-6">
-               <input type="file" ref={stagePhotoInputRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} multiple />
-               <input type="file" ref={stageCameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
-               
-               <div>
-                  <Label className="mb-2 block flex items-center gap-2"><Camera className="w-4 h-4" /> Stage Photos ({stage.photos?.length || 0})</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                     {(stage.photos || []).map((photo, i) => (
-                        <div key={i} className="relative aspect-square rounded-lg bg-secondary border border-border overflow-hidden group">
-                           <img src={photo} alt={`Stage photo ${i + 1}`} className="w-full h-full object-cover" />
-                           <button 
-                              onClick={() => removePhoto(i)}
-                              className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                           >
-                              <X className="w-4 h-4 text-white" />
-                           </button>
-                        </div>
-                     ))}
-                     <div className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2">
-                        <div className="flex gap-2">
-                           <button 
-                              onClick={() => stageCameraInputRef.current?.click()}
-                              className="p-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-                              data-testid="button-stage-camera"
-                           >
-                              <Camera className="w-5 h-5" />
-                           </button>
-                           <button 
-                              onClick={() => stagePhotoInputRef.current?.click()}
-                              className="p-3 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
-                              data-testid="button-stage-files"
-                           >
-                              <Folder className="w-5 h-5" />
-                           </button>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground">Camera / Files</span>
-                     </div>
-                  </div>
-               </div>
-
-               <div className="space-y-3">
-                  <Label className="flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes & Comments ({(stage.comments || []).length})</Label>
-                  
-                  {(stage.comments || []).length > 0 && (
-                    <ScrollArea className="max-h-[150px] pr-2">
-                      <div className="space-y-2">
-                        {(stage.comments || []).map((comment) => (
-                          <div key={comment.id} className="bg-secondary/50 rounded-lg p-3 group relative">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <p className="text-sm">{comment.text}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">
-                                  {comment.author} • {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
-                                </p>
-                              </div>
-                              <button 
-                                onClick={() => removeComment(comment.id)}
-                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
                       </div>
-                    </ScrollArea>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    <Textarea 
-                       placeholder="Add a comment..." 
-                       className="bg-secondary/50 border-border min-h-[60px] flex-1"
-                       value={newComment}
-                       onChange={(e) => setNewComment(e.target.value)}
-                       onKeyDown={(e) => {
-                         if (e.key === 'Enter' && !e.shiftKey) {
-                           e.preventDefault();
-                           addComment();
-                         }
-                       }}
-                       data-testid="input-stage-comment"
-                    />
+                    ))}
                   </div>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    onClick={addComment}
-                    disabled={!newComment.trim()}
-                    data-testid="button-add-comment"
-                  >
-                    <Plus className="w-4 h-4 mr-1" /> Add Comment
-                  </Button>
-               </div>
-            </TabsContent>
-         </Tabs>
+                </ScrollArea>
+              )}
+
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Add a comment..."
+                  className="bg-secondary/50 border-border min-h-[60px] flex-1"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      addComment();
+                    }
+                  }}
+                  data-testid="input-stage-comment"
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={addComment}
+                disabled={!newComment.trim()}
+                data-testid="button-add-comment"
+              >
+                <Plus className="w-4 h-4 mr-1" /> Add Comment
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
 
       <div className="p-6 border-t border-border/50 bg-white/5 flex items-center justify-between gap-4">
-         <Button 
-           variant="outline" 
-           className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20"
-           onClick={onReportIssue}
-           data-testid="button-report-issue"
-         >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Report Issue
-         </Button>
-         {isJobDelivered ? (
-           <div className="flex items-center gap-2 px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-             <CheckCircle2 className="w-5 h-5 text-green-500" />
-             <span className="font-bold text-green-500 text-lg">Completed</span>
-           </div>
-         ) : isCurrentStage ? (
-           stage.id === 11 ? (
-             <Button 
-                onClick={onMarkAsDelivered}
-                disabled={!isAllChecked}
-                className={cn(
-                   "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
-                   isAllChecked ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
-                )}
-                data-testid="button-mark-delivered"
-             >
-                <Flag className="w-4 h-4 mr-2" />
-                Mark as Delivered
-             </Button>
-           ) : (
-             <Button 
-                onClick={() => onComplete(localChecklist)}
-                disabled={!isAllChecked || !ppfDetailsComplete}
-                className={cn(
-                   "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
-                   (isAllChecked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
-                )}
-                data-testid="button-complete-stage"
-             >
-                Complete Stage
-                <ChevronRight className="w-4 h-4 ml-2" />
-             </Button>
-           )
-         ) : (
-           <Button 
-              variant="secondary"
-              onClick={onBackToCurrentStage}
-              className="w-full md:w-auto min-w-[200px] min-h-[44px]"
-              data-testid="button-back-to-current"
-           >
-              Back to Current Stage
+        <Button
+          variant="outline"
+          className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20"
+          onClick={onReportIssue}
+          data-testid="button-report-issue"
+        >
+          <AlertTriangle className="w-4 h-4 mr-2" />
+          Report Issue
+        </Button>
+        {isJobDelivered ? (
+          <div className="flex items-center gap-2 px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+            <CheckCircle2 className="w-5 h-5 text-green-500" />
+            <span className="font-bold text-green-500 text-lg">Completed</span>
+          </div>
+        ) : isCurrentStage ? (
+          stage.id === 11 ? (
+            <Button
+              onClick={onMarkAsDelivered}
+              disabled={!isAllChecked}
+              className={cn(
+                "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
+                isAllChecked ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+              )}
+              data-testid="button-mark-delivered"
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              Mark as Delivered
+            </Button>
+          ) : (
+            <Button
+              onClick={() => onComplete(localChecklist)}
+              disabled={!isAllChecked || !ppfDetailsComplete}
+              className={cn(
+                "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
+                (isAllChecked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+              )}
+              data-testid="button-complete-stage"
+            >
+              Complete Stage
               <ChevronRight className="w-4 h-4 ml-2" />
-           </Button>
-         )}
+            </Button>
+          )
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={onBackToCurrentStage}
+            className="w-full md:w-auto min-w-[200px] min-h-[44px]"
+            data-testid="button-back-to-current"
+          >
+            Back to Current Stage
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
       </div>
     </Card>
   );

@@ -1,11 +1,11 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  ClipboardList, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  PlusCircle,
+  ClipboardList,
+  Settings,
+  LogOut,
   Menu,
   Car,
   CheckCircle2
@@ -33,12 +33,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   const NavItem = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => (
     <Link href={href}>
-      <button 
+      <button
         onClick={() => setIsOpen(false)}
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all w-full",
-          location === href 
-            ? "bg-primary/10 text-primary border border-primary/20" 
+          location === href
+            ? "bg-primary/10 text-primary border border-primary/20"
             : "text-muted-foreground hover:text-foreground hover:bg-white/5"
         )}
       >
@@ -52,9 +52,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border">
       <div className="p-6 border-b border-sidebar-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20">
-            <Car className="w-6 h-6 text-white" />
-          </div>
+          <img src="/logo.png" alt="SunKool Logo" className="h-10 w-auto object-contain" />
           <div>
             <h1 className="font-display font-bold text-xl tracking-tight leading-none text-foreground">PPF MASTER</h1>
             <p className="text-xs text-muted-foreground font-medium mt-1">Workshop OS</p>
@@ -84,9 +82,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             <p className="text-sm font-medium truncate text-foreground">{currentUser?.name}</p>
             <p className="text-xs text-muted-foreground truncate">{currentUser?.role}</p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={handleLogout}
             data-testid="button-logout"
@@ -105,22 +103,20 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar/80 backdrop-blur-md border-b border-sidebar-border z-40 px-4 flex items-center justify-between">
-         <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-               <Car className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-display font-bold text-lg">PPF MASTER</span>
-         </div>
-         <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="w-6 h-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 border-r-border bg-sidebar">
-              <SidebarContent />
-            </SheetContent>
-         </Sheet>
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="SunKool Logo" className="h-8 w-auto object-contain" />
+          <span className="font-display font-bold text-lg">PPF MASTER</span>
+        </div>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 border-r-border bg-sidebar">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
       </div>
 
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen transition-all">

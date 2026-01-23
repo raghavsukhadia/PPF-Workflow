@@ -6,21 +6,30 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Car, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useLogin } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const loginMutation = useLogin();
-  
-  const [username, setUsername] = useState("");
+
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setIsLoading(true);
+
     try {
-      await loginMutation.mutateAsync({ username, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
       toast({
         title: "Welcome back",
         description: "Successfully logged in.",
@@ -30,8 +39,10 @@ export default function Login() {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: error.message || "Invalid username or password.",
+        description: error.message || "Invalid email or password.",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,8 +53,8 @@ export default function Login() {
 
       <Card className="w-full max-w-md glass-card border-border/50 relative z-10 animate-in fade-in zoom-in duration-500" data-testid="card-login">
         <CardHeader className="text-center pb-8">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-primary/30">
-            <Car className="w-8 h-8 text-primary-foreground" />
+          <div className="mx-auto mb-4">
+            <img src="/logo.png" alt="SunKool Logo" className="h-20 w-auto mx-auto object-contain" />
           </div>
           <CardTitle className="text-3xl font-display font-bold" data-testid="text-app-title">PPF MASTER</CardTitle>
           <CardDescription>Workshop Operating System</CardDescription>
@@ -51,39 +62,39 @@ export default function Login() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input 
-                id="username"
-                data-testid="input-username"
-                placeholder="Enter username" 
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                data-testid="input-email"
+                placeholder="Enter email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="bg-secondary/50 border-border"
-                disabled={loginMutation.isPending}
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input 
+              <Input
                 id="password"
                 data-testid="input-password"
-                type="password" 
-                placeholder="Enter password" 
+                type="password"
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-secondary/50 border-border"
-                disabled={loginMutation.isPending}
+                disabled={isLoading}
               />
             </div>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               data-testid="button-login"
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11" 
-              disabled={loginMutation.isPending}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11"
+              disabled={isLoading}
             >
-              {loginMutation.isPending ? "Authenticating..." : "Sign In"}
+              {isLoading ? "Authenticating..." : "Sign In"}
             </Button>
-            
+
             <div className="text-center text-xs text-muted-foreground mt-4 flex items-center justify-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               <span>Secure Workshop Access</span>

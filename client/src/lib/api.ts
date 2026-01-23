@@ -1,10 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "./supabase";
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 
 export interface ApiUser {
   id: string;
   name: string;
   role: string;
   username: string;
+  email?: string;
+}
+
+// Helper to map Supabase user to ApiUser
+function mapSupabaseUser(user: User | null): ApiUser | null {
+  if (!user) return null;
+  return {
+    id: user.id,
+    name: user.user_metadata?.name || user.email || "Unknown",
+    role: user.user_metadata?.role || "user",
+    username: user.user_metadata?.username || user.email || "unknown",
+    email: user.email
+  };
 }
 
 export interface ApiJob {
@@ -85,11 +101,14 @@ export interface ApiJobIssue {
 }
 
 async function fetcher(url: string, options?: RequestInit) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
   const response = await fetch(url, {
     ...options,
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
@@ -99,36 +118,57 @@ async function fetcher(url: string, options?: RequestInit) {
     throw new Error(error.message || "Request failed");
   }
 
+  if (response.status === 204) return;
   return response.json();
 }
 
 export function useAuth() {
-  return useQuery<ApiUser>({
-    queryKey: ["/api/auth/me"],
-    queryFn: () => fetcher("/api/auth/me"),
-    retry: false,
-  });
+  const [user, setUser] = useState<ApiUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(mapSupabaseUser(session?.user ?? null));
+      setIsLoading(false);
+    });
+
+    // Listen for changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(mapSupabaseUser(session?.user ?? null));
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return { data: user, isLoading };
 }
 
+// Deprecated: Login is handled directly in the component now, but keeping hook structure if needed
+// or we can remove it. For backward compatibility with existing code that might use it:
 export function useLogin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ username, password }: { username: string; password: string }) => {
-      return fetcher("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      });
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/me"], data);
-    },
-  });
+  // This is a placeholder as actual login logic is moving to the component
+  // to better handle Supabase specific errors and flows.
+  return {
+    mutateAsync: async ({ username, password }: any) => {
+      // Ideally we should use supabase.auth.signInWithPassword here
+      // But username login requires mapping if Supabase uses email.
+      // For now, let's assume we will update Login.tsx to use email or handle username mapping.
+      throw new Error("Please use Supabase Auth directly");
+    }
+  };
 }
 
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => fetcher("/api/auth/logout", { method: "POST" }),
+    mutationFn: async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    },
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
@@ -299,7 +339,7 @@ export function usePpfProducts() {
 export function useCreatePpfProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; brand: string; type: string; widthMm: number }) => 
+    mutationFn: (data: { name: string; brand: string; type: string; widthMm: number }) =>
       fetcher("/api/ppf-products", {
         method: "POST",
         body: JSON.stringify(data),
@@ -331,7 +371,7 @@ export function usePpfRolls() {
 export function useCreatePpfRoll() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { rollId: string; productId: string; batchNo?: string; totalLengthMm: number; status: string; imageUrl?: string }) => 
+    mutationFn: (data: { rollId: string; productId: string; batchNo?: string; totalLengthMm: number; status: string; imageUrl?: string }) =>
       fetcher("/api/ppf-rolls", {
         method: "POST",
         body: JSON.stringify(data),
@@ -402,16 +442,16 @@ export function useJobIssues(jobId: string | undefined) {
 export function useCreateJobIssue() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobId, data }: { 
-      jobId: string; 
-      data: { 
+    mutationFn: ({ jobId, data }: {
+      jobId: string;
+      data: {
         stageId: number;
         issueType: string;
         description: string;
         location?: string;
         severity?: string;
         mediaUrls?: string[];
-      } 
+      }
     }) =>
       fetcher(`/api/jobs/${jobId}/issues`, {
         method: "POST",
