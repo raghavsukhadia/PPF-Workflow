@@ -10,6 +10,18 @@ const server = createServer(app);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
+// Logging and normalization for troubleshooting - MUST BE BEFORE registerRoutes
+app.use((req, res, next) => {
+    const originalUrl = req.url;
+    // Normalize URL for routing: ensure it starts with /api if it doesn't
+    // This handles cases where Vercel might strip the /api prefix when routing to this function
+    if (!req.url.startsWith('/api')) {
+        req.url = '/api' + (req.url.startsWith('/') ? '' : '/') + req.url;
+    }
+    console.log(`Vercel Routing: ${req.method} ${originalUrl} -> ${req.url}`);
+    next();
+});
+
 // Initialize routes
 registerRoutes(server, app);
 
@@ -25,18 +37,6 @@ app.get('/api/health', (req, res) => {
             nodeEnv: process.env.NODE_ENV
         }
     });
-});
-
-// Logging and normalization for troubleshooting
-app.use((req, res, next) => {
-    const originalUrl = req.url;
-    // Normalize URL for routing: ensure it starts with /api if it doesn't
-    // This handles cases where Vercel might strip the /api prefix when routing to this function
-    if (!req.url.startsWith('/api')) {
-        req.url = '/api' + (req.url.startsWith('/') ? '' : '/') + req.url;
-    }
-    console.log(`Vercel Routing: ${req.method} ${originalUrl} -> ${req.url}`);
-    next();
 });
 
 export default app;
