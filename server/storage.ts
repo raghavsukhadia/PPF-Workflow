@@ -1,12 +1,12 @@
-import { 
-  users, 
+import {
+  users,
   jobs,
   servicePackages,
   ppfProducts,
   ppfRolls,
   jobPpfUsage,
   jobIssues,
-  type User, 
+  type User,
   type InsertUser,
   type Job,
   type InsertJob,
@@ -32,14 +32,14 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   deleteUser(id: string): Promise<void>;
-  
+
   getAllJobs(): Promise<Job[]>;
   getJobsSummary(): Promise<JobSummary[]>;
   getJob(id: string): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   updateJob(id: string, data: Partial<InsertJob>): Promise<Job | undefined>;
   deleteJob(id: string): Promise<void>;
-  
+
   getAllServicePackages(): Promise<ServicePackage[]>;
   createServicePackage(pkg: InsertServicePackage): Promise<ServicePackage>;
   deleteServicePackage(id: string): Promise<void>;
@@ -123,21 +123,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createJob(insertJob: InsertJob): Promise<Job> {
-    const jobNo = `JOB-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-    const [job] = await db
-      .insert(jobs)
-      .values({ ...insertJob, jobNo })
-      .returning();
-    return job;
+    try {
+      const jobNo = `JOB-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+      const [job] = await db
+        .insert(jobs)
+        .values({ ...insertJob, jobNo })
+        .returning();
+      return job;
+    } catch (error) {
+      console.error("Error in createJob:", error);
+      throw error;
+    }
   }
 
   async updateJob(id: string, data: Partial<InsertJob>): Promise<Job | undefined> {
-    const [job] = await db
-      .update(jobs)
-      .set(data)
-      .where(eq(jobs.id, id))
-      .returning();
-    return job || undefined;
+    try {
+      const [job] = await db
+        .update(jobs)
+        .set(data)
+        .where(eq(jobs.id, id))
+        .returning();
+      return job || undefined;
+    } catch (error) {
+      console.error("Error in updateJob:", error);
+      throw error;
+    }
   }
 
   async deleteJob(id: string): Promise<void> {
@@ -225,7 +235,7 @@ export class DatabaseStorage implements IStorage {
     if (!roll) {
       throw new Error("Roll not found");
     }
-    
+
     const remainingLength = roll.totalLengthMm - roll.usedLengthMm;
     if (insertUsage.lengthUsedMm > remainingLength) {
       throw new Error(`Insufficient roll length. Available: ${remainingLength}mm, Requested: ${insertUsage.lengthUsedMm}mm`);
@@ -235,11 +245,11 @@ export class DatabaseStorage implements IStorage {
       .insert(jobPpfUsage)
       .values(insertUsage)
       .returning();
-    
+
     await this.updatePpfRoll(roll.id, {
       usedLengthMm: roll.usedLengthMm + insertUsage.lengthUsedMm
     });
-    
+
     return usage;
   }
 

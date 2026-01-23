@@ -10,12 +10,10 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  // In production/migration, these must be set.
-  // We'll warn if not set, but the server might fail to verify tokens.
   console.warn("Supabase credentials not found in environment. Auth verification will fail.");
 }
 
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 const updatePpfRollSchema = z.object({
   status: z.enum(["active", "depleted", "disposed"]).optional(),
@@ -25,6 +23,11 @@ const updatePpfRollSchema = z.object({
 
 // Middleware to verify Supabase JWT
 const verifyAuth = async (req: Request, res: Response, next: NextFunction) => {
+  if (!supabase) {
+    console.error("Supabase client not initialized. Check environment variables.");
+    return res.status(500).json({ message: "Auth service unavailable" });
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ message: "No authorization header" });

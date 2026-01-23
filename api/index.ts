@@ -7,21 +7,31 @@ const app = express();
 const server = createServer(app);
 
 // Parse JSON bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Initialize routes
 registerRoutes(server, app);
 
+// Health check
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        env: {
+            hasDb: !!process.env.DATABASE_URL,
+            hasSupabase: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
+            hasSupabaseKey: !!(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY),
+            nodeEnv: process.env.NODE_ENV
+        }
+    });
+});
+
 // Vercel serverless function handler
 export default async function handler(req: Request, res: Response) {
-    // Wait for routes to be registered if needed (registerRoutes is async)
-    // But here we rely on the side effects or internal setups. 
-    // Ideally registerRoutes should be awaited if it does async setup.
-    // Since we called it above, it returns a promise. We should probably await it inside the handler
-    // or at top level if supported. Best practice for Vercel:
-
-    // Note: Vercel caches the module, so top level execution happens once per cold start.
-
-    return app(req, res);
+    try {
+        return app(req, res);
+    } catch (error: any) {
+        console.error('Vercel Handler Error:', error);
+        return res.status(500).json({ error: error.message });
+    }
 }
