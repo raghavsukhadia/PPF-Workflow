@@ -17,6 +17,7 @@ registerRoutes(server, app);
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
+        url: req.url,
         env: {
             hasDb: !!process.env.DATABASE_URL,
             hasSupabase: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
@@ -26,12 +27,16 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Vercel serverless function handler
-export default async function handler(req: Request, res: Response) {
-    try {
-        return app(req, res);
-    } catch (error: any) {
-        console.error('Vercel Handler Error:', error);
-        return res.status(500).json({ error: error.message });
+// Logging and normalization for troubleshooting
+app.use((req, res, next) => {
+    const originalUrl = req.url;
+    // Normalize URL for routing: ensure it starts with /api if it doesn't
+    // This handles cases where Vercel might strip the /api prefix when routing to this function
+    if (!req.url.startsWith('/api')) {
+        req.url = '/api' + (req.url.startsWith('/') ? '' : '/') + req.url;
     }
-}
+    console.log(`Vercel Routing: ${req.method} ${originalUrl} -> ${req.url}`);
+    next();
+});
+
+export default app;
