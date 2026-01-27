@@ -1,21 +1,29 @@
 {
     "version": 2,
+    "outputDirectory": "dist/public",
     "functions": {
-        "api/index.ts": {
+        "api/server.ts": {
             "runtime": "vercel-node@latest",
-            "includeFiles": "dist/public/**",
             "memory": 1024,
             "maxDuration": 15
         }
     },
     "rewrites": [
         {
+            "source": "/api/health",
+            "destination": "/api/health.ts"
+        },
+        {
+            "source": "/api/ping",
+            "destination": "/api/server.ts"
+        },
+        {
             "source": "/api/(.*)",
-            "destination": "/api/index.ts"
+            "destination": "/api/server.ts"
         },
         {
             "source": "/((?!api/).*)",
-            "destination": "/api/index.ts"
+            "destination": "/index.html"
         }
     ],
     "cleanUrls": true,
