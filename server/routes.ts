@@ -368,7 +368,16 @@ export async function registerRoutes(
     }
   });
 
+  // Mount the router at both /api and / to handle different deployment environments (like Vercel)
+  // where the /api prefix might or might not be stripped before reaching the app.
   app.use("/api", router);
+  app.use("/", (req, res, next) => {
+    // Only handle if it doesn't already start with /api (to avoid double processing)
+    if (req.url.startsWith('/api')) {
+      return next();
+    }
+    router(req, res, next);
+  });
 
   return httpServer;
 }

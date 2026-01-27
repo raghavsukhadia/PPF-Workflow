@@ -16,14 +16,28 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Initialize routes synchronously
-// Even though registerRoutes is async, it adds routes to 'app' immediately in its body
 registerRoutes(server, app).catch(err => {
-    console.error("Error during route registration:", err);
+    console.error("[Vercel] Error during route registration:", err);
 });
 
-// Health check route
+// Health check route and root-level paths for debugging
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', environment: 'vercel' });
+    res.json({
+        status: 'ok',
+        environment: 'vercel',
+        time: new Date().toISOString(),
+        url: req.url,
+        path: req.path
+    });
+});
+
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        environment: 'vercel',
+        context: 'root-health',
+        url: req.url
+    });
 });
 
 export default app;
