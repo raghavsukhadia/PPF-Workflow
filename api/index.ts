@@ -1,44 +1,48 @@
 import express from 'express';
 import { createServer } from 'http';
-import { registerRoutes } from '../server/routes';
 
 const app = express();
 const server = createServer(app);
 
-// Request parsing
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
-// Logging
-app.use((req, res, next) => {
-    console.log(`[Vercel] ${req.method} ${req.url}`);
-    next();
+// Health check that doesn't depend on ANYTHING
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', source: 'minimal-api-index' });
 });
 
-// Health check with multiple possible path matches for Vercel
-app.get(['/api/health', '/health'], (req, res) => {
-    res.json({
-        status: 'ok',
-        url: req.url,
-        path: req.path,
-        context: 'flexible-health'
-    });
+// Diagnostic route
+app.get('/api/diagnostic', async (req, res) => {
+    const info: any = {
+        env: process.env.NODE_ENV,
+        hasDbUrl: !!process.env.DATABASE_URL,
+        cwd: process.cwd(),
+        dir: __dirname,
+    };
+
+    try {
+        const { db } = await import('../server/db');
+        info.dbImported = true;
+        info.hasPool = !!db;
+    } catch (e: any) {
+        info.dbError = e.message;
+    }
+
+    res.json(info);
 });
 
-// Debug route to see what path Express is actually receiving
-app.get('/api/debug-path', (req, res) => {
-    res.json({
-        url: req.url,
-        path: req.path,
-        params: req.params,
-        query: req.query,
-        baseUrl: req.baseUrl
-    });
-});
+// Lazy load routes to prevent startup crash
+const initRoutes = async () => {
+    try {
+        console.log("[Vercel] Attempting to load routes...");
+        const { registerRoutes } = await import('../server/routes');
+        await registerRoutes(server, app);
+        console.log("[Vercel] Routes loaded successfully");
+    } catch (err: any) {
+        console.error("[Vercel] CRITICAL: Failed to load routes:", err);
+    }
+};
 
-// Initialize routes synchronously
-registerRoutes(server, app).catch(err => {
-    console.error("[Vercel] Initialization error during route registration:", err);
-});
+initRoutes();
 
 export default app;
