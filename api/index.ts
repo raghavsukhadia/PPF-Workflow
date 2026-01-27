@@ -15,13 +15,28 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check DIRECTLY on app for maximum visibility
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', context: 'api-index-health', time: new Date().toISOString() });
+// Health check with multiple possible path matches for Vercel
+app.get(['/api/health', '/health'], (req, res) => {
+    res.json({
+        status: 'ok',
+        url: req.url,
+        path: req.path,
+        context: 'flexible-health'
+    });
+});
+
+// Debug route to see what path Express is actually receiving
+app.get('/api/debug-path', (req, res) => {
+    res.json({
+        url: req.url,
+        path: req.path,
+        params: req.params,
+        query: req.query,
+        baseUrl: req.baseUrl
+    });
 });
 
 // Initialize routes synchronously
-// We don't await here to ensure 'app' is fully configured and exported immediately
 registerRoutes(server, app).catch(err => {
     console.error("[Vercel] Initialization error during route registration:", err);
 });
