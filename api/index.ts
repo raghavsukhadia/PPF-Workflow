@@ -9,8 +9,14 @@ const server = createServer(app);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
-// Initialize routes
-// Note: registerRoutes is async but synchronously adds routes to 'app'
-registerRoutes(server, app);
+// Initialize routes asynchronously for Vercel
+(async () => {
+    try {
+        await registerRoutes(server, app);
+        console.log("Routes registered successfully in Vercel environment");
+    } catch (error) {
+        console.error("Failed to register routes:", error);
+    }
+})();
 
 export default app;
