@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, servicePackages, ppfProducts } from "@shared/schema";
+import { users, servicePackages, ppfProducts } from "../shared/schema";
 
 export async function seedDatabase() {
   try {

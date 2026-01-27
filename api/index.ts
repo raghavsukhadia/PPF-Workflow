@@ -1,6 +1,9 @@
 import express from 'express';
-import { registerRoutes } from '../server/routes';
 import { createServer } from 'http';
+
+// diagnostic info
+console.log("[Vercel] Function starting...");
+console.log("[Vercel] Filesystem check:", __dirname);
 
 const app = express();
 const server = createServer(app);
@@ -22,28 +25,32 @@ app.get('/api/health', (req, res) => {
         status: 'ok',
         message: 'API is working',
         environment: 'vercel',
-        url: req.url,
-        timestamp: new Date().toISOString()
+        time: new Date().toISOString()
     });
 });
 
-// Initialize routes synchronously
-console.log("[Vercel] Starting route registration...");
-registerRoutes(server, app)
-    .then(() => {
+// Wrap route registration in a way that catches initialization errors
+async function initialize() {
+    try {
+        console.log("[Vercel] Importing routes...");
+        const { registerRoutes } = await import('../server/routes');
+        console.log("[Vercel] Registering routes...");
+        await registerRoutes(server, app);
         console.log("[Vercel] Route registration completed");
-    })
-    .catch(err => {
-        console.error("[Vercel] Error during route registration:", err);
-    });
+    } catch (err: any) {
+        console.error("[Vercel] FATAL ERROR during initialization:", err);
 
-// Catch-all for API routes that didn't match
-app.use('/api/*', (req, res) => {
-    console.log(`[Vercel] API 404: ${req.method} ${req.url}`);
-    res.status(404).json({
-        message: `API route not found: ${req.method} ${req.url}`,
-        suggestion: "Check your route definitions in server/routes.ts"
-    });
-});
+        // Add a fallback route to report the error if we are in development/debug
+        app.get('/api/error-debug', (req, res) => {
+            res.status(500).json({
+                error: err.message,
+                stack: err.stack,
+                context: "Initialization failure"
+            });
+        });
+    }
+}
+
+initialize();
 
 export default app;

@@ -1,7 +1,7 @@
 import { Router, type Express, Request, Response, NextFunction } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
-import { insertJobSchema, insertServicePackageSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "@shared/schema";
+import { insertJobSchema, insertServicePackageSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "../shared/schema";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 
