@@ -1,9 +1,9 @@
 {
     "version": 2,
+    "outputDirectory": "dist/public",
     "functions": {
         "api/index.ts": {
             "runtime": "vercel-node@latest",
-            "includeFiles": "dist/public/**",
             "memory": 1024,
             "maxDuration": 15
         }
@@ -15,7 +15,9 @@
         },
         {
             "source": "/((?!api/).*)",
-            "destination": "/api/index.ts"
+            "destination": "/index.html"
         }
-    ]
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
 }
