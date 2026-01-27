@@ -1,6 +1,13 @@
 {
     "version": 2,
     "outputDirectory": "dist/public",
+    "functions": {
+        "api/index.ts": {
+            "runtime": "vercel-node@latest",
+            "memory": 1024,
+            "maxDuration": 10
+        }
+    },
     "rewrites": [
         {
             "source": "/api/(.*)",
