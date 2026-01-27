@@ -1,21 +1,21 @@
 {
     "version": 2,
-    "outputDirectory": "dist/public",
-    "functions": {
-        "api/index.ts": {
-            "runtime": "vercel-node@latest",
-            "memory": 1024,
-            "maxDuration": 15
-        }
-    },
     "rewrites": [
         {
             "source": "/api/(.*)",
             "destination": "/api/index.ts"
         },
         {
+            "source": "/assets/(.*)",
+            "destination": "/dist/public/assets/$1"
+        },
+        {
+            "source": "/logo.png",
+            "destination": "/dist/public/logo.png"
+        },
+        {
             "source": "/((?!api/).*)",
-            "destination": "/index.html"
+            "destination": "/dist/public/index.html"
         }
     ],
     "cleanUrls": true,
