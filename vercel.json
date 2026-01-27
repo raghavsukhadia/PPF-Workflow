@@ -1,17 +1,14 @@
 {
     "version": 2,
+    "functions": {
+        "api/index.ts": {
+            "runtime": "nodejs18.x"
+        }
+    },
     "rewrites": [
         {
             "source": "/api/(.*)",
             "destination": "/api/index.ts"
-        },
-        {
-            "source": "/assets/(.*)",
-            "destination": "/dist/public/assets/$1"
-        },
-        {
-            "source": "/logo.png",
-            "destination": "/dist/public/logo.png"
         },
         {
             "source": "/((?!api/).*)",
