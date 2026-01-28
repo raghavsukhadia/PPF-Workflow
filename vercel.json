@@ -10,19 +10,11 @@
             "destination": "/api/packages$1"
         },
         {
-            "source": "/api/jobs/(?<id>[^/]+)",
-            "destination": "/api/jobs-by-id?id=$id"
-        },
-        {
-            "source": "/api/jobs",
-            "destination": "/api/jobs"
-        },
-        {
             "source": "/api/diagnostic",
             "destination": "/api/diagnostic"
         },
         {
-            "source": "/api/((?!users|packages|jobs|diagnostic).*)",
+            "source": "/api/((?!users|packages|diagnostic).*)",
             "destination": "/api/index.ts"
         },
         {
