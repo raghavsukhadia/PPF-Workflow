@@ -26,7 +26,7 @@
             "destination": "/api/diagnostic"
         },
         {
-            "source": "/api/((?!users|packages|diagnostic).*)",
+            "source": "/api/((?!users|packages|diagnostic|ppf-products|ppf-rolls|jobs).*)",
             "destination": "/api/index"
         },
         {
