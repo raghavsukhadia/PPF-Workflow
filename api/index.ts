@@ -1,6 +1,5 @@
 import express from 'express';
 import { createServer } from 'http';
-import { registerRoutes } from '../server/routes';
 
 const app = express();
 const server = createServer(app);
@@ -14,26 +13,44 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check - defined before route registration
+// Health check - always available
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', source: 'api-index-monolith', time: new Date().toISOString() });
 });
 
-// Top-level await to ensure routes are registered before handling requests
-try {
-    console.log("[Vercel] Registering routes...");
-    await registerRoutes(server, app);
-    console.log("[Vercel] Routes registered successfully");
-} catch (error: any) {
-    console.error("[Vercel] FATAL: Failed to register routes:", error);
+// Track route registration status
+let routesRegistered = false;
+let registrationError: Error | null = null;
 
-    // Error reporting route
-    app.get('/api/startup-error', (req, res) => {
-        res.status(500).json({
-            error: error.message,
-            stack: error.stack
+// Register routes asynchronously but don't block export
+(async () => {
+    try {
+        console.log("[Vercel] Registering routes...");
+        const { registerRoutes } = await import('../server/routes.js');
+        await registerRoutes(server, app);
+        routesRegistered = true;
+        console.log("[Vercel] Routes registered successfully");
+    } catch (error: any) {
+        registrationError = error;
+        console.error("[Vercel] FATAL: Failed to register routes:", error);
+
+        // Add error reporting route
+        app.get('/api/startup-error', (req, res) => {
+            res.status(500).json({
+                error: error.message,
+                stack: error.stack,
+                routesRegistered: false
+            });
         });
+    }
+})();
+
+// Status endpoint to check if routes are ready
+app.get('/api/status', (req, res) => {
+    res.json({
+        routesRegistered,
+        error: registrationError ? registrationError.message : null
     });
-}
+});
 
 export default app;
