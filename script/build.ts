@@ -69,6 +69,8 @@ async function buildAll() {
     "api/users.ts",
     "api/packages.ts",
     "api/jobs-summary.ts",
+    "api/ppf-products.ts",
+    "api/ppf-rolls.ts",
     "api/diagnostic.ts",
     "api/users/[id].ts",
     "api/packages/[id].ts"
