@@ -10,11 +10,15 @@
             "destination": "/api/packages$1"
         },
         {
+            "source": "/api/jobs(.*)",
+            "destination": "/api/jobs$1"
+        },
+        {
             "source": "/api/diagnostic",
             "destination": "/api/diagnostic"
         },
         {
-            "source": "/api/((?!users|packages|diagnostic).*)",
+            "source": "/api/((?!users|packages|jobs|diagnostic).*)",
             "destination": "/api/index.ts"
         },
         {
