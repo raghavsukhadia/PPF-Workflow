@@ -10,6 +10,10 @@
             "destination": "/api/packages$1"
         },
         {
+            "source": "/api/jobs/summary",
+            "destination": "/api/jobs-summary"
+        },
+        {
             "source": "/api/diagnostic",
             "destination": "/api/diagnostic"
         },
