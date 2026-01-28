@@ -2,6 +2,30 @@
     "version": 2,
     "rewrites": [
         {
+            "source": "/api/users(.*)",
+            "destination": "/api/users$1"
+        },
+        {
+            "source": "/api/packages(.*)",
+            "destination": "/api/packages$1"
+        },
+        {
+            "source": "/api/diagnostic",
+            "destination": "/api/diagnostic"
+        },
+        {
+            "source": "/api/((?!users|packages|diagnostic).*)",
+            "destination": "/api/index.ts"
+        },
+        {
+            "source": "/assets/(.*)",
+            "destination": "/dist/public/assets/$1"
+        },
+        {
+            "source": "/logo.png",
+            "destination": "/dist/public/logo.png"
+        },
+        {
             "source": "/((?!api/).*)",
             "destination": "/dist/public/index.html"
         }
