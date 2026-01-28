@@ -39,6 +39,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     } catch (error: any) {
         console.error('API Error:', error);
-        return res.status(500).json({ message: error.message || 'Internal server error' });
+        return res.status(500).json({
+            message: error.message || 'Internal server error',
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 }
