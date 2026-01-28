@@ -10,8 +10,12 @@
             "destination": "/api/packages$1"
         },
         {
-            "source": "/api/jobs(.*)",
-            "destination": "/api/jobs$1"
+            "source": "/api/jobs/(?<id>[^/]+)",
+            "destination": "/api/jobs-by-id?id=$id"
+        },
+        {
+            "source": "/api/jobs",
+            "destination": "/api/jobs"
         },
         {
             "source": "/api/diagnostic",
