@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../server/storage';
+import { storage } from './storage';
 import { insertServicePackageSchema } from '../shared/schema';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
