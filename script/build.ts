@@ -73,7 +73,12 @@ async function buildAll() {
     "api/ppf-rolls.ts",
     "api/diagnostic.ts",
     "api/users/[id].ts",
-    "api/packages/[id].ts"
+    "api/packages/[id].ts",
+    "api/jobs/index.ts",
+    "api/jobs/[id].ts",
+    "api/jobs/[id]/issues.ts",
+    "api/jobs/[id]/ppf-usage.ts",
+    "api/jobs/[id]/deliver.ts"
   ];
 
   // We don't bundle these fully, just transpile, or we bundle dependencies but exclude node_modules if Vercel handles them

@@ -1,9 +1,10 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../storage.js';
-import { verifyAuth } from '../auth.js';
-import { insertJobSchema } from '../schema.js';
+import { storage } from '../../storage.js';
+import { verifyAuth } from '../../auth.js';
+import { insertJobPpfUsageSchema } from '../../schema.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    // Enable CORS
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -17,21 +18,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const auth = await verifyAuth(req, res);
     if (!auth) return;
 
+    const { id } = req.query;
+    const jobId = Array.isArray(id) ? id[0] : id;
+
+    if (!jobId) {
+        return res.status(400).json({ message: 'Job ID required' });
+    }
+
     try {
         if (req.method === 'GET') {
-            const jobs = await storage.getAllJobs();
-            return res.status(200).json(jobs);
+            const usage = await storage.getJobPpfUsage(jobId);
+            return res.status(200).json(usage);
         }
 
         if (req.method === 'POST') {
-            const validatedData = insertJobSchema.parse(req.body);
-            const job = await storage.createJob(validatedData);
-            return res.status(201).json(job);
+            const validatedData = insertJobPpfUsageSchema.parse({
+                ...req.body,
+                jobId: jobId
+            });
+            const usage = await storage.createJobPpfUsage(validatedData);
+            return res.status(201).json(usage);
         }
 
         return res.status(405).json({ message: 'Method not allowed' });
+
     } catch (error: any) {
         console.error('API Error:', error);
-        return res.status(500).json({ message: error.message || 'Internal server error' });
+        return res.status(500).json({
+            message: error.message || 'Internal server error'
+        });
     }
 }
