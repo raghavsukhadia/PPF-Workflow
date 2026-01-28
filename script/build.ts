@@ -46,6 +46,7 @@ async function buildAll() {
   ];
   const externals = allDeps.filter((dep) => !allowlist.includes(dep));
 
+  // Build Server API (monolith fallback)
   await esbuild({
     entryPoints: ["server/index.ts"],
     platform: "node",
@@ -57,6 +58,31 @@ async function buildAll() {
     },
     minify: true,
     external: externals,
+    logLevel: "info",
+  });
+
+  // Build Vercel API Functions
+  // This ensures api/ files are compiled and placed where Vercel can find them if configured
+  console.log("building api functions...");
+  const apiFiles = [
+    "api/index.ts",
+    "api/users.ts",
+    "api/packages.ts",
+    "api/diagnostic.ts",
+    "api/users/[id].ts",
+    "api/packages/[id].ts"
+  ];
+
+  // We don't bundle these fully, just transpile, or we bundle dependencies but exclude node_modules if Vercel handles them
+  // For Vercel, we typically want individual entry points.
+  await esbuild({
+    entryPoints: apiFiles,
+    platform: "node",
+    bundle: true, // Bundle to include shared local deps like 'db.ts'
+    format: "esm", // Vercel prefers ESM for modern node
+    outdir: "dist/api", // Output to dist/api so Vercel can find them if outputDirectory is dist
+    target: "node18",
+    external: externals, // Keep node_modules external for Vercel runtime to handle
     logLevel: "info",
   });
 }
