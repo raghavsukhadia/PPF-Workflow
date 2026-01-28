@@ -20,7 +20,7 @@ import {
     type InsertJobPpfUsage,
     type JobIssue,
     type InsertJobIssue
-} from "../shared/schema";
+} from "./schema.js";
 import { db } from "./db.js";
 import { eq, desc } from "drizzle-orm";
 
