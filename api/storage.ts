@@ -21,7 +21,7 @@ import {
     type JobIssue,
     type InsertJobIssue
 } from "../shared/schema";
-import { db } from "./db";
+import { db } from "./db.js";
 import { eq, desc } from "drizzle-orm";
 
 export type JobSummary = Pick<Job, 'id' | 'jobNo' | 'customerName' | 'vehicleBrand' | 'vehicleModel' | 'vehicleRegNo' | 'status' | 'currentStage' | 'priority' | 'promisedDate' | 'assignedTo' | 'package' | 'createdAt' | 'activeIssue'>;

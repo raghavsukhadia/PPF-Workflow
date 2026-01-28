@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test database connection
     try {
-        const { db } = await import('./db');
+        const { db } = await import('./db.js');
         diagnostic.database = { connectionAttempted: true };
         // Try a simple query
         const result = await db.execute('SELECT 1 as test');
