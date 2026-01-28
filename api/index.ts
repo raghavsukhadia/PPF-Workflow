@@ -1,48 +1,39 @@
 import express from 'express';
 import { createServer } from 'http';
+import { registerRoutes } from '../server/routes';
 
 const app = express();
 const server = createServer(app);
 
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
-// Health check that doesn't depend on ANYTHING
+// Logging
+app.use((req, res, next) => {
+    console.log(`[Vercel Monolith] ${req.method} ${req.url}`);
+    next();
+});
+
+// Health check - defined before route registration
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', source: 'minimal-api-index' });
+    res.json({ status: 'ok', source: 'api-index-monolith', time: new Date().toISOString() });
 });
 
-// Diagnostic route
-app.get('/api/diagnostic', async (req, res) => {
-    const info: any = {
-        env: process.env.NODE_ENV,
-        hasDbUrl: !!process.env.DATABASE_URL,
-        cwd: process.cwd(),
-        dir: __dirname,
-    };
+// Top-level await to ensure routes are registered before handling requests
+try {
+    console.log("[Vercel] Registering routes...");
+    await registerRoutes(server, app);
+    console.log("[Vercel] Routes registered successfully");
+} catch (error: any) {
+    console.error("[Vercel] FATAL: Failed to register routes:", error);
 
-    try {
-        const { db } = await import('../server/db');
-        info.dbImported = true;
-        info.hasPool = !!db;
-    } catch (e: any) {
-        info.dbError = e.message;
-    }
-
-    res.json(info);
-});
-
-// Lazy load routes to prevent startup crash
-const initRoutes = async () => {
-    try {
-        console.log("[Vercel] Attempting to load routes...");
-        const { registerRoutes } = await import('../server/routes');
-        await registerRoutes(server, app);
-        console.log("[Vercel] Routes loaded successfully");
-    } catch (err: any) {
-        console.error("[Vercel] CRITICAL: Failed to load routes:", err);
-    }
-};
-
-initRoutes();
+    // Error reporting route
+    app.get('/api/startup-error', (req, res) => {
+        res.status(500).json({
+            error: error.message,
+            stack: error.stack
+        });
+    });
+}
 
 export default app;
