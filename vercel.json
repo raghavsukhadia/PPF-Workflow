@@ -14,24 +14,8 @@
             "destination": "/api/jobs-summary"
         },
         {
-            "source": "/api/jobs/(?<id>[^/]+)/issues",
-            "destination": "/api/jobs/%5Bid%5D/issues?id=$id"
-        },
-        {
-            "source": "/api/jobs/(?<id>[^/]+)/ppf-usage",
-            "destination": "/api/jobs/%5Bid%5D/ppf-usage?id=$id"
-        },
-        {
-            "source": "/api/jobs/(?<id>[^/]+)/deliver",
-            "destination": "/api/jobs/%5Bid%5D/deliver?id=$id"
-        },
-        {
-            "source": "/api/jobs/(?<id>[^/]+)",
-            "destination": "/api/jobs/%5Bid%5D?id=$id"
-        },
-        {
-            "source": "/api/jobs",
-            "destination": "/api/jobs/index"
+            "source": "/api/jobs(.*)",
+            "destination": "/api/jobs$1"
         },
         {
             "source": "/api/ppf-products",
