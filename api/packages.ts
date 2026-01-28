@@ -1,4 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { storage } from '../server/storage';
+import { insertServicePackageSchema } from '../shared/schema';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Enable CORS
@@ -13,16 +15,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        // Import storage dynamically
-        const { storage } = await import('../server/storage');
-
         if (req.method === 'GET') {
             const packages = await storage.getAllServicePackages();
             return res.status(200).json(packages);
         }
 
         if (req.method === 'POST') {
-            const { insertServicePackageSchema } = await import('../shared/schema');
             const validatedData = insertServicePackageSchema.parse(req.body);
             const pkg = await storage.createServicePackage(validatedData);
             return res.status(201).json(pkg);
