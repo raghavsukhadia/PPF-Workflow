@@ -1,5 +1,7 @@
 {
     "version": 2,
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist/public",
     "rewrites": [
         {
             "source": "/api/users(.*)",
@@ -35,15 +37,15 @@
         },
         {
             "source": "/assets/(.*)",
-            "destination": "/dist/public/assets/$1"
+            "destination": "/assets/$1"
         },
         {
             "source": "/logo.png",
-            "destination": "/dist/public/logo.png"
+            "destination": "/logo.png"
         },
         {
-            "source": "/((?!api/).*)",
-            "destination": "/dist/public/index.html"
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ],
     "cleanUrls": true,
