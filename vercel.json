@@ -1,0 +1,51 @@
+{
+    "version": 2,
+    "rewrites": [
+        {
+            "source": "/api/users(.*)",
+            "destination": "/api/users$1"
+        },
+        {
+            "source": "/api/packages(.*)",
+            "destination": "/api/packages$1"
+        },
+        {
+            "source": "/api/jobs/summary",
+            "destination": "/api/jobs-summary"
+        },
+        {
+            "source": "/api/jobs(.*)",
+            "destination": "/api/jobs$1"
+        },
+        {
+            "source": "/api/ppf-products",
+            "destination": "/api/ppf-products"
+        },
+        {
+            "source": "/api/ppf-rolls",
+            "destination": "/api/ppf-rolls"
+        },
+        {
+            "source": "/api/diagnostic",
+            "destination": "/api/diagnostic"
+        },
+        {
+            "source": "/api/((?!users|packages|diagnostic|ppf-products|ppf-rolls|jobs).*)",
+            "destination": "/api/index"
+        },
+        {
+            "source": "/assets/(.*)",
+            "destination": "/dist/public/assets/$1"
+        },
+        {
+            "source": "/logo.png",
+            "destination": "/dist/public/logo.png"
+        },
+        {
+            "source": "/((?!api/).*)",
+            "destination": "/dist/public/index.html"
+        }
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
+}

@@ -1,0 +1,140 @@
+import { Link, useLocation } from "wouter";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  PlusCircle,
+  ClipboardList,
+  Settings,
+  LogOut,
+  Menu,
+  CheckCircle2,
+  FileDown
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth, useLogout, jobsSummaryQueryFn } from "@/lib/api";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+
+export default function Shell({ children }: { children: React.ReactNode }) {
+  const [location, setLocation] = useLocation();
+  const { data: currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const logoutMutation = useLogout();
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      queryClient.prefetchQuery({ queryKey: ["/api/jobs/summary"], queryFn: jobsSummaryQueryFn });
+    }
+  }, [currentUser, queryClient]);
+
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    setLocation("/login");
+  };
+
+  if (location === "/login") {
+    return <>{children}</>;
+  }
+
+  const isAdmin = currentUser?.role === "Admin";
+
+  const NavItem = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => (
+    <Link href={href}>
+      <button
+        onClick={() => setIsOpen(false)}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium transition-all w-full text-left",
+          location === href
+            ? "bg-primary/10 text-primary border border-primary/20"
+            : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+        )}
+      >
+        <Icon className="w-5 h-5 shrink-0" />
+        {label}
+      </button>
+    </Link>
+  );
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border">
+      <div className="p-6 border-b border-sidebar-border/50">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="SunKool Logo" className="h-10 w-auto object-contain" />
+          <div className="min-w-0">
+            <h1 className="font-display font-bold text-xl tracking-tight leading-none text-foreground">PPF MASTER</h1>
+            <p className="text-xs text-muted-foreground font-medium mt-1">Workshop OS</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto min-h-0">
+        <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Menu</div>
+        <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
+        <NavItem href="/create-job" icon={PlusCircle} label="New Job Card" />
+        <NavItem href="/kanban" icon={ClipboardList} label="Kanban Board" />
+        <NavItem href="/completed" icon={CheckCircle2} label="Completed" />
+        {isAdmin && <NavItem href="/export" icon={FileDown} label="Export" />}
+        <div className="h-4" />
+        <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">System</div>
+        {isAdmin && <NavItem href="/settings" icon={Settings} label="Settings" />}
+      </div>
+
+      <div className="p-4 border-t border-sidebar-border/50 bg-sidebar-accent/30 shrink-0">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-9 w-9 border border-border shrink-0">
+            <AvatarFallback className="bg-primary/20 text-primary font-bold">
+              {currentUser?.name?.charAt(0) || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate text-foreground">{currentUser?.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{currentUser?.role}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-destructive"
+            onClick={handleLogout}
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      <aside className="hidden md:block w-64 fixed inset-y-0 z-50">
+        <SidebarContent />
+      </aside>
+
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar/80 backdrop-blur-md border-b border-sidebar-border z-40 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="SunKool Logo" className="h-8 w-auto object-contain" />
+          <span className="font-display font-bold text-lg">PPF MASTER</span>
+        </div>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px]">
+              <Menu className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 border-r-border bg-sidebar">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen transition-all min-w-0 overflow-x-hidden">
+        <div className="h-full p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 min-w-0">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
