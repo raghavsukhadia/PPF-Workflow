@@ -16,6 +16,22 @@
             "destination": "/api/jobs-summary"
         },
         {
+            "source": "/api/jobs/([^/]+)/issues",
+            "destination": "/api/jobs-id-issues?id=$1"
+        },
+        {
+            "source": "/api/jobs/([^/]+)/ppf-usage",
+            "destination": "/api/jobs-id-ppf-usage?id=$1"
+        },
+        {
+            "source": "/api/jobs/([^/]+)/deliver",
+            "destination": "/api/jobs-id-deliver?id=$1"
+        },
+        {
+            "source": "/api/jobs/([^/]+)",
+            "destination": "/api/jobs-id?id=$1"
+        },
+        {
             "source": "/api/jobs(.*)",
             "destination": "/api/jobs$1"
         },
