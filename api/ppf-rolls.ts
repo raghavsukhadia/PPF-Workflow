@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { storage } from './storage.js';
+import { verifyAuth } from './auth.js';
 import { insertPpfRollSchema } from './schema.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,6 +14,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(200).end();
         return;
     }
+
+    const auth = await verifyAuth(req, res);
+    if (!auth) return;
 
     try {
         if (req.method === 'GET') {

@@ -44,7 +44,7 @@ export default function Settings() {
   const [newPackage, setNewPackage] = useState("");
 
   const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberUsername, setNewMemberUsername] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberPassword, setNewMemberPassword] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("Installer");
 
@@ -95,10 +95,10 @@ export default function Settings() {
   };
 
   const handleAddMember = () => {
-    if (newMemberName.trim() && newMemberUsername.trim() && newMemberPassword.trim()) {
+    if (newMemberName.trim() && newMemberEmail.trim() && newMemberPassword.trim()) {
       createUser.mutate(
         {
-          username: newMemberUsername.trim(),
+          email: newMemberEmail.trim(),
           password: newMemberPassword.trim(),
           name: newMemberName.trim(),
           role: newMemberRole
@@ -106,7 +106,7 @@ export default function Settings() {
         {
           onSuccess: () => {
             setNewMemberName("");
-            setNewMemberUsername("");
+            setNewMemberEmail("");
             setNewMemberPassword("");
             toast({ title: "Team Member Added", description: `${newMemberName} added to the team.` });
           },
@@ -123,7 +123,7 @@ export default function Settings() {
       toast({
         variant: "destructive",
         title: "Missing Fields",
-        description: "Please fill in all fields (name, username, and password)."
+        description: "Please fill in all fields (name, email, and password)."
       });
     }
   };
@@ -367,13 +367,14 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Username</label>
-                  <Input 
-                    placeholder="Username for login" 
-                    value={newMemberUsername}
-                    onChange={(e) => setNewMemberUsername(e.target.value)}
+                  <label className="text-sm font-medium">Email</label>
+                  <Input
+                    type="email"
+                    placeholder="staff@example.com"
+                    value={newMemberEmail}
+                    onChange={(e) => setNewMemberEmail(e.target.value)}
                     className="bg-secondary/50"
-                    data-testid="input-member-username"
+                    data-testid="input-member-email"
                   />
                 </div>
                 <div className="space-y-2">
@@ -401,7 +402,7 @@ export default function Settings() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={handleAddMember} className="bg-primary hover:bg-primary/90" data-testid="button-add-member">
+                <Button onClick={handleAddMember} className="bg-primary hover:bg-primary/90 w-full sm:w-auto min-h-[44px]" data-testid="button-add-member">
                   <Plus className="w-4 h-4 mr-2" /> Add Team Member
                 </Button>
               </div>
@@ -419,7 +420,7 @@ export default function Settings() {
                           <Shield className="w-3 h-3" />
                           <span>{member.role}</span>
                           <span>•</span>
-                          <span>{member.username}</span>
+                          <span>{member.username || member.email}</span>
                         </div>
                       </div>
                     </div>

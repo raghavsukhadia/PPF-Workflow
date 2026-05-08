@@ -43,6 +43,7 @@ export interface ApiJob {
   priority: string;
   activeIssue: any;
   assignedTo: string | null;
+  processType: string;
 }
 
 export interface ApiServicePackage {
@@ -191,6 +192,21 @@ export interface ApiJobSummary {
   package: string;
   createdAt: string;
   activeIssue: any;
+  processType: string;
+}
+
+export interface ApiDeliveredJob {
+  id: string;
+  jobNo: string;
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehicleYear: string;
+  vehicleColor: string;
+  vehicleRegNo: string;
+  package: string;
+  promisedDate: string;
+  processType: string;
+  createdAt: string;
 }
 
 export function useJobs() {
@@ -213,6 +229,13 @@ export function useJobsSummary() {
   });
 }
 
+export function useDeliveredJobs() {
+  return useQuery<ApiDeliveredJob[]>({
+    queryKey: ["/api/jobs/delivered"],
+    queryFn: () => fetcher("/api/jobs/delivered"),
+  });
+}
+
 export function useJob(id: string | undefined) {
   return useQuery<ApiJob>({
     queryKey: ["/api/jobs", id],
@@ -229,8 +252,8 @@ export function useCreateJob() {
       body: JSON.stringify(data),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/delivered"] });
     },
   });
 }
@@ -243,10 +266,14 @@ export function useUpdateJob() {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+    onSuccess: (updatedJob, variables) => {
+      // Update the individual job cache directly — avoids a network round-trip
+      queryClient.setQueryData(["/api/jobs", variables.id], updatedJob);
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs", variables.id] });
+      // Only refresh delivered list when a job transitions to delivered status
+      if (variables.data?.status === 'delivered') {
+        queryClient.invalidateQueries({ queryKey: ["/api/jobs/delivered"] });
+      }
     },
   });
 }
@@ -255,9 +282,10 @@ export function useDeleteJob() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => fetcher(`/api/jobs/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: ["/api/jobs", id] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/delivered"] });
     },
   });
 }
@@ -267,8 +295,8 @@ export function useDeliverJob() {
   return useMutation({
     mutationFn: (id: string) => fetcher(`/api/jobs/${id}/deliver`, { method: "POST" }),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/delivered"] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs", id] });
     },
   });

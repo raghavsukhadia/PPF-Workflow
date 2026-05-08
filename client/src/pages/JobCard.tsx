@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { JobStage, PpfDetails } from "@/lib/store";
+import { JobStage, PpfDetails, CeramicDetails } from "@/lib/store";
 import { useJob, useUpdateJob, useUsers, useJobIssues, useCreateJobIssue, useUpdateJobIssue, useDeleteJobIssue, ApiJobIssue, useAuth } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,8 @@ import {
   Plus,
   MapPin,
   CheckCircle,
-  Flag
+  Flag,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
@@ -40,20 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Folder, CameraIcon, VideoIcon, MicIcon } from "lucide-react";
 import { compressImage, debounce } from "@/lib/imageUtils";
 import { useUpload } from "@/hooks/use-upload";
-
-const STAGE_NAMES: Record<number, string> = {
-  1: "Vehicle Inward",
-  2: "Inspection",
-  3: "Washing",
-  4: "Surface Preparation",
-  5: "Parts Opening",
-  6: "Washing (2)",
-  7: "PPF Application",
-  8: "Parts Repacking",
-  9: "Cleaning & Finishing",
-  10: "Final Inspection",
-  11: "Delivered"
-};
+import { MediaLightbox, MediaThumb, parseMediaUrl, type MediaItem } from "@/components/ui/media-lightbox";
 
 const ISSUE_TYPES = [
   { value: "scratch", label: "Scratch" },
@@ -95,6 +83,7 @@ export default function JobCard() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [selectedIssue, setSelectedIssue] = useState<ApiJobIssue | null>(null);
   const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(null);
+  const [lightbox, setLightbox] = useState<{ items: MediaItem[]; index: number } | null>(null);
 
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -156,6 +145,7 @@ export default function JobCard() {
     return {
       ...apiJob,
       stages,
+      processType: (apiJob.processType || 'ppf').toLowerCase(),
       vehicle: {
         brand: apiJob.vehicleBrand,
         model: apiJob.vehicleModel,
@@ -166,6 +156,11 @@ export default function JobCard() {
       }
     };
   }, [apiJob]);
+
+  const stageNameMap = useMemo(() => {
+    if (!job) return {} as Record<number, string>;
+    return Object.fromEntries(job.stages.map((s: any) => [s.id, s.name])) as Record<number, string>;
+  }, [job]);
 
   const openIssues = useMemo(() =>
     issues?.filter(i => i.status === 'open') || [],
@@ -319,10 +314,11 @@ export default function JobCard() {
   };
 
   const moveJobStage = (direction: 'next' | 'prev', localChecklist?: { item: string; checked: boolean }[]) => {
+    const totalStages = job.stages.length;
     let newStageNo = job.currentStage;
     const updatedStages = [...job.stages];
 
-    if (direction === 'next' && job.currentStage < 11) {
+    if (direction === 'next' && job.currentStage < totalStages) {
       const checklistToValidate = localChecklist || updatedStages[job.currentStage - 1].checklist;
       const allChecked = checklistToValidate.every((item: any) => item.checked);
 
@@ -416,12 +412,13 @@ export default function JobCard() {
 
   const markAsDelivered = () => {
     const updatedStages = [...job.stages];
-    const checkedChecklist = updatedStages[10].checklist.map((item: any) => ({
+    const lastIdx = updatedStages.length - 1;
+    const checkedChecklist = updatedStages[lastIdx].checklist.map((item: any) => ({
       ...item,
       checked: true
     }));
-    updatedStages[10] = {
-      ...updatedStages[10],
+    updatedStages[lastIdx] = {
+      ...updatedStages[lastIdx],
       checklist: checkedChecklist,
       status: 'completed',
       completedAt: new Date().toISOString()
@@ -476,14 +473,24 @@ export default function JobCard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-6 ml-12 md:ml-0">
-          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
+        <div className="flex items-center gap-2 sm:gap-6 ml-12 md:ml-0 flex-wrap">
+          <div className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-secondary/30 rounded-lg border border-border/50">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
               <HardHat className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Installer</p>
               <p className="text-xs sm:text-sm font-medium truncate">{assignedUser ? assignedUser.name : "Unassigned"}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 px-2.5 sm:px-4 py-2 bg-secondary/30 rounded-lg border border-border/50 md:hidden">
+            <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Due</p>
+              <p className="text-xs font-medium truncate">{format(new Date(job.promisedDate), 'MMM d, h:mm a')}</p>
             </div>
           </div>
 
@@ -520,7 +527,7 @@ export default function JobCard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="outline" className="text-xs capitalize">{issue.issueType.replace('_', ' ')}</Badge>
-                      <Badge variant="secondary" className="text-xs">Stage {issue.stageId}: {STAGE_NAMES[issue.stageId]}</Badge>
+                      <Badge variant="secondary" className="text-xs">Stage {issue.stageId}: {stageNameMap[issue.stageId] || ''}</Badge>
                     </div>
                     <p className="text-sm line-clamp-1">{issue.description}</p>
                     {issue.location && (
@@ -544,12 +551,12 @@ export default function JobCard() {
 
       <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 h-full">
         <div className="lg:col-span-1 space-y-4">
-          <Card className="glass-card border-border/50 h-full max-h-[calc(100vh-200px)] flex flex-col">
+          <Card className="glass-card border-border/50 h-full max-h-[320px] sm:max-h-[420px] lg:max-h-[calc(100vh-200px)] flex flex-col">
             <CardHeader>
               <CardTitle>Workflow Progress</CardTitle>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Progress value={(job.currentStage / 11) * 100} className="h-2" />
-                <span className="w-12 text-right">{Math.round((job.currentStage / 11) * 100)}%</span>
+                <Progress value={(job.currentStage / job.stages.length) * 100} className="h-2" />
+                <span className="w-12 text-right">{Math.round((job.currentStage / job.stages.length) * 100)}%</span>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
@@ -675,6 +682,9 @@ export default function JobCard() {
                 onMarkAsDelivered={markAsDelivered}
                 isJobCompleted={job.status === 'completed'}
                 isJobDelivered={job.status === 'delivered'}
+                processType={job.processType || 'ppf'}
+                totalStages={job.stages.length}
+                onOpenLightbox={(items, index) => setLightbox({ items, index })}
               />
             );
           })()}
@@ -692,9 +702,10 @@ export default function JobCard() {
                 {job.stages.map((stage: any) => {
                   const hasPhotos = stage.photos && stage.photos.length > 0;
                   const hasComments = stage.comments && stage.comments.length > 0;
-                  const hasPpfDetails = stage.id === 7 && stage.ppfDetails && (stage.ppfDetails.brand || stage.ppfDetails.rollImages?.length > 0);
+                  const hasPpfDetails = job.processType === 'ppf' && stage.id === 7 && stage.ppfDetails && (stage.ppfDetails.brand || stage.ppfDetails.rollImages?.length > 0);
+                  const hasCeramicDetails = job.processType === 'ceramic' && stage.id === 5 && stage.ceramicDetails && (stage.ceramicDetails.productName || stage.ceramicDetails.productPhotos?.length > 0);
 
-                  if (!hasPhotos && !hasComments && !hasPpfDetails) return null;
+                  if (!hasPhotos && !hasComments && !hasPpfDetails && !hasCeramicDetails) return null;
 
                   return (
                     <div key={stage.id} className="space-y-3">
@@ -710,7 +721,27 @@ export default function JobCard() {
                           {stage.ppfDetails.rollImages && stage.ppfDetails.rollImages.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                               {stage.ppfDetails.rollImages.map((img: string, idx: number) => (
-                                <img key={idx} src={img} alt={`PPF Roll ${idx + 1}`} className="w-20 h-20 object-cover rounded-md border border-border" />
+                                <MediaThumb key={idx} item={{ url: img, type: "photo" }} index={idx} size="sm"
+                                  onOpen={() => setLightbox({ items: stage.ppfDetails.rollImages.map((u: string) => ({ url: u, type: "photo" as const })), index: idx })} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {hasCeramicDetails && (
+                        <div className="bg-amber-500/5 rounded-lg p-3 space-y-2 border border-amber-500/20">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-500" />
+                            <p className="text-sm font-medium text-amber-500">Ceramic Product Details</p>
+                          </div>
+                          {stage.ceramicDetails.productName && <p className="text-sm">Product: {stage.ceramicDetails.productName}</p>}
+                          {stage.ceramicDetails.productId && <p className="text-sm">Product ID: {stage.ceramicDetails.productId}</p>}
+                          {stage.ceramicDetails.productPhotos && stage.ceramicDetails.productPhotos.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {stage.ceramicDetails.productPhotos.map((img: string, idx: number) => (
+                                <MediaThumb key={idx} item={{ url: img, type: "photo" }} index={idx} size="sm"
+                                  onOpen={() => setLightbox({ items: stage.ceramicDetails.productPhotos.map((u: string) => ({ url: u, type: "photo" as const })), index: idx })} />
                               ))}
                             </div>
                           )}
@@ -724,13 +755,8 @@ export default function JobCard() {
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {stage.photos.map((photo: string, idx: number) => (
-                              <a key={idx} href={photo} target="_blank" rel="noopener noreferrer">
-                                <img
-                                  src={photo}
-                                  alt={`Stage ${stage.id} Photo ${idx + 1}`}
-                                  className="w-24 h-24 object-cover rounded-lg border border-border hover:border-primary transition-colors"
-                                />
-                              </a>
+                              <MediaThumb key={idx} item={{ url: photo, type: "photo" }} index={idx}
+                                onOpen={() => setLightbox({ items: stage.photos.map((u: string) => ({ url: u, type: "photo" as const })), index: idx })} />
                             ))}
                           </div>
                         </div>
@@ -757,7 +783,7 @@ export default function JobCard() {
                   );
                 })}
 
-                {job.stages.every((s: any) => (!s.photos || s.photos.length === 0) && (!s.comments || s.comments.length === 0)) && (
+                {job.stages.every((s: any) => (!s.photos || s.photos.length === 0) && (!s.comments || s.comments.length === 0) && !s.ppfDetails?.brand && !s.ceramicDetails?.productName) && (
                   <p className="text-center text-muted-foreground py-8">No photos or notes were captured during this job.</p>
                 )}
               </CardContent>
@@ -774,7 +800,7 @@ export default function JobCard() {
               Report an Issue
             </DialogTitle>
             <DialogDescription>
-              Document any issues found during Stage {job.currentStage}: {STAGE_NAMES[job.currentStage]}. Issues will be visible throughout the job.
+              Document any issues found during Stage {job.currentStage}: {stageNameMap[job.currentStage] || ''}. Issues will be visible throughout the job.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -946,7 +972,7 @@ export default function JobCard() {
                   <DialogTitle className="capitalize">{selectedIssue.issueType.replace('_', ' ')} Issue</DialogTitle>
                 </div>
                 <DialogDescription>
-                  Stage {selectedIssue.stageId}: {STAGE_NAMES[selectedIssue.stageId]}
+                  Stage {selectedIssue.stageId}: {stageNameMap[selectedIssue.stageId] || ''}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -989,39 +1015,11 @@ export default function JobCard() {
                     <Label className="text-muted-foreground text-xs">Attached Media</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedIssue.mediaUrls.map((url, idx) => {
-                        const hashType = url.includes('#') ? url.split('#')[1] : '';
-                        const cleanUrl = url.split('#')[0];
-                        const isVideo = url.startsWith('data:video') || hashType === 'video';
-                        const isAudio = url.startsWith('data:audio') || hashType === 'audio';
-
-                        if (isVideo) {
-                          return (
-                            <video
-                              key={idx}
-                              src={cleanUrl}
-                              controls
-                              className="w-32 h-24 rounded-md border border-border bg-black"
-                            />
-                          );
-                        }
-                        if (isAudio) {
-                          return (
-                            <audio
-                              key={idx}
-                              src={cleanUrl}
-                              controls
-                              className="w-48 h-10"
-                            />
-                          );
-                        }
+                        const item = parseMediaUrl(url);
+                        const allItems = selectedIssue.mediaUrls!.map(parseMediaUrl);
                         return (
-                          <a key={idx} href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
-                            <img
-                              src={cleanUrl}
-                              alt={`Attachment ${idx + 1}`}
-                              className="w-24 h-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
-                            />
-                          </a>
+                          <MediaThumb key={idx} item={item} index={idx}
+                            onOpen={() => setLightbox({ items: allItems, index: idx })} />
                         );
                       })}
                     </div>
@@ -1040,6 +1038,16 @@ export default function JobCard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Global lightbox */}
+      {lightbox && (
+        <MediaLightbox
+          items={lightbox.items}
+          initialIndex={lightbox.index}
+          open={true}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1058,7 +1066,10 @@ function StageDetailView({
   onBackToCurrentStage,
   onMarkAsDelivered,
   isJobCompleted = false,
-  isJobDelivered = false
+  isJobDelivered = false,
+  processType = 'ppf',
+  totalStages = 11,
+  onOpenLightbox,
 }: {
   jobId: string;
   stage: JobStage;
@@ -1074,6 +1085,9 @@ function StageDetailView({
   onMarkAsDelivered?: () => void;
   isJobCompleted?: boolean;
   isJobDelivered?: boolean;
+  processType?: string;
+  totalStages?: number;
+  onOpenLightbox?: (items: MediaItem[], index: number) => void;
 }) {
   const [localChecklist, setLocalChecklist] = useState(stage.checklist);
   const { uploadFile } = useUpload();
@@ -1091,17 +1105,32 @@ function StageDetailView({
   const stagePhotoInputRef = useRef<HTMLInputElement>(null);
   const stageCameraInputRef = useRef<HTMLInputElement>(null);
   const ppfRollImageInputRef = useRef<HTMLInputElement>(null);
+  const ceramicProductPhotoInputRef = useRef<HTMLInputElement>(null);
   const [newComment, setNewComment] = useState('');
+
+  // PPF details state (stage 7 in PPF workflow)
   const [ppfBrand, setPpfBrand] = useState(stage.ppfDetails?.brand || '');
   const [ppfRollId, setPpfRollId] = useState(stage.ppfDetails?.rollId || '');
   const [ppfRollImages, setPpfRollImages] = useState<string[]>(
     stage.ppfDetails?.rollImages || (stage.ppfDetails?.rollImage ? [stage.ppfDetails.rollImage] : [])
   );
-
-  const isPpfStage = stage.id === 7;
+  const isPpfStage = processType === 'ppf' && stage.id === 7;
   const ppfDetailsComplete = !isPpfStage || (ppfBrand.trim() !== '' && ppfRollId.trim() !== '') || ppfRollImages.length > 0;
-
   const [ppfDetailsSaved, setPpfDetailsSaved] = useState(!!stage.ppfDetails?.brand || (stage.ppfDetails?.rollImages && stage.ppfDetails.rollImages.length > 0) || !!stage.ppfDetails?.rollImage);
+
+  // Ceramic details state (stage 5 in Ceramic workflow)
+  const [ceramicProductName, setCeramicProductName] = useState(stage.ceramicDetails?.productName || '');
+  const [ceramicProductId, setCeramicProductId] = useState(stage.ceramicDetails?.productId || '');
+  const [ceramicProductPhotos, setCeramicProductPhotos] = useState<string[]>(stage.ceramicDetails?.productPhotos || []);
+  const isCeramicDetailsStage = processType === 'ceramic' && stage.id === 5;
+  // Product Name is always required; Ceramic ID OR at least one photo satisfies the second requirement
+  const ceramicNameFilled = ceramicProductName.trim() !== '';
+  const ceramicIdOrPhotoFilled = ceramicProductId.trim() !== '' || ceramicProductPhotos.length > 0;
+  const ceramicDetailsComplete = !isCeramicDetailsStage || (ceramicNameFilled && ceramicIdOrPhotoFilled);
+  const [ceramicDetailsSaved, setCeramicDetailsSaved] = useState(
+    !!(stage.ceramicDetails?.productName &&
+      (stage.ceramicDetails?.productId || (stage.ceramicDetails?.productPhotos && stage.ceramicDetails.productPhotos.length > 0)))
+  );
 
   const savePpfDetails = () => {
     onUpdate({
@@ -1112,6 +1141,37 @@ function StageDetailView({
       }
     });
     setPpfDetailsSaved(true);
+  };
+
+  const saveCeramicDetails = () => {
+    onUpdate({
+      ceramicDetails: {
+        productName: ceramicProductName.trim(),
+        productId: ceramicProductId.trim(),
+        productPhotos: ceramicProductPhotos
+      }
+    });
+    setCeramicDetailsSaved(true);
+  };
+
+  const handleCeramicProductPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      try {
+        const result = await uploadFile(file);
+        if (result) {
+          setCeramicProductPhotos(prev => [...prev, result.uploadURL]);
+        }
+      } catch {
+        console.error('Failed to upload ceramic product photo');
+      }
+    }
+    e.target.value = '';
+  };
+
+  const removeCeramicProductPhoto = (index: number) => {
+    setCeramicProductPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const handlePpfRollImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1190,15 +1250,15 @@ function StageDetailView({
       currentStageIssueCount > 0 && "border-amber-500/30 shadow-amber-500/5"
     )}>
       <CardHeader className="border-b border-border/50 bg-white/5 pb-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className={cn(
-              "text-sm font-medium mb-1",
+              "text-xs sm:text-sm font-medium mb-1",
               !isCurrentStage ? "text-muted-foreground" :
                 currentStageIssueCount > 0 ? "text-amber-500" : "text-primary"
             )}>
               {!isCurrentStage ? (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 flex-wrap">
                   VIEWING STAGE
                   {onBackToCurrentStage && (
                     <Button variant="link" size="sm" className="h-auto p-0 text-primary" onClick={onBackToCurrentStage}>
@@ -1208,52 +1268,69 @@ function StageDetailView({
                 </span>
               ) : currentStageIssueCount > 0 ? `CURRENT STAGE (${currentStageIssueCount} open issue${currentStageIssueCount > 1 ? 's' : ''})` : "CURRENT STAGE"}
             </p>
-            <CardTitle className="text-3xl">{stage.id}. {stage.name}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">{stage.id}. {stage.name}</CardTitle>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="w-4 h-4" />
-              <span>Stage Assigned to:</span>
-              <Select
-                value={stage.assignedTo}
-                onValueChange={(val) => onUpdate({ assignedTo: val })}
-              >
-                <SelectTrigger className="w-[180px] h-8 text-xs border-none bg-transparent focus:ring-0 px-0 justify-end font-medium text-foreground">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+            <User className="w-4 h-4 shrink-0" />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Assigned:</span>
+            <Select
+              value={stage.assignedTo}
+              onValueChange={(val) => onUpdate({ assignedTo: val })}
+            >
+              <SelectTrigger className="w-[150px] sm:w-[180px] h-8 text-xs border-none bg-transparent focus:ring-0 px-0 justify-end font-medium text-foreground">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                {teamMembers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {stage.startedAt && (
-              <p className="text-xs text-muted-foreground">Started: {format(new Date(stage.startedAt), 'h:mm a')}</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">• {format(new Date(stage.startedAt), 'h:mm a')}</p>
             )}
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="flex-1 p-0 relative">
-        <Tabs key={`stage-${stage.id}`} defaultValue={isPpfStage ? "ppf-details" : "checklist"} className="w-full h-full flex flex-col">
-          <div className="px-6 py-2 border-b border-border/50">
-            <TabsList className={cn("grid w-full [&>button]:min-h-[44px]", isPpfStage ? "max-w-[500px] grid-cols-3" : "max-w-[400px] grid-cols-2")}>
+        <Tabs
+          key={`stage-${stage.id}`}
+          defaultValue={isPpfStage ? "ppf-details" : isCeramicDetailsStage ? "ceramic-details" : "checklist"}
+          className="w-full h-full flex flex-col"
+        >
+          <div className="px-3 sm:px-6 py-2 border-b border-border/50">
+            <TabsList className={cn(
+              "grid w-full [&>button]:min-h-[44px] [&>button]:text-xs sm:[&>button]:text-sm",
+              (isPpfStage || isCeramicDetailsStage) ? "grid-cols-3" : "grid-cols-2"
+            )}>
               {isPpfStage && (
-                <TabsTrigger value="ppf-details" className="relative">
-                  PPF Details
-                  {ppfDetailsComplete && <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />}
+                <TabsTrigger value="ppf-details" className="relative gap-1">
+                  <span className="sm:hidden">PPF</span>
+                  <span className="hidden sm:inline">PPF Details</span>
+                  {ppfDetailsComplete && <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />}
                 </TabsTrigger>
               )}
-              <TabsTrigger value="checklist" disabled={isPpfStage && !ppfDetailsComplete}>
-                Checklist ({localChecklist.filter(i => i.checked).length}/{localChecklist.length})
+              {isCeramicDetailsStage && (
+                <TabsTrigger value="ceramic-details" className="relative gap-1">
+                  <span className="sm:hidden">Product</span>
+                  <span className="hidden sm:inline">Ceramic Details</span>
+                  {ceramicDetailsComplete && <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="checklist" disabled={(isPpfStage && !ppfDetailsComplete) || (isCeramicDetailsStage && !ceramicDetailsComplete)}>
+                <span className="sm:hidden">Checklist ({localChecklist.filter(i => i.checked).length}/{localChecklist.length})</span>
+                <span className="hidden sm:inline">Checklist ({localChecklist.filter(i => i.checked).length}/{localChecklist.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="photos">Photos & Notes</TabsTrigger>
+              <TabsTrigger value="photos">
+                <span className="sm:hidden">Photos</span>
+                <span className="hidden sm:inline">Photos & Notes</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
           {isPpfStage && (
-            <TabsContent value="ppf-details" className="flex-1 p-6 space-y-6">
+            <TabsContent value="ppf-details" className="flex-1 p-4 sm:p-6 space-y-6">
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
                 <p className="text-sm text-primary font-medium mb-1">PPF Film Information Required</p>
                 <p className="text-xs text-muted-foreground">Enter the PPF brand and roll ID, or attach a photo of the roll label before proceeding to the checklist.</p>
@@ -1290,8 +1367,9 @@ function StageDetailView({
 
                   <div className="grid grid-cols-3 gap-3">
                     {ppfRollImages.map((img, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border">
-                        <img src={img} alt={`PPF Roll ${idx + 1}`} className="w-full h-full object-cover" />
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
+                        <img src={img} alt={`PPF Roll ${idx + 1}`} loading="lazy" className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => onOpenLightbox?.(ppfRollImages.map(u => ({ url: u, type: "photo" as const })), idx)} />
                         <button
                           onClick={() => removePpfRollImage(idx)}
                           className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
@@ -1334,7 +1412,169 @@ function StageDetailView({
             </TabsContent>
           )}
 
-          <TabsContent value="checklist" className="flex-1 p-6 space-y-4">
+          {isCeramicDetailsStage && (
+            <TabsContent value="ceramic-details" className="flex-1 p-4 sm:p-6 space-y-5">
+
+              {/* Header banner */}
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <p className="text-sm text-amber-500 font-semibold">Ceramic Product Details Required</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Product name is mandatory. You must also provide either the Ceramic ID <span className="font-medium text-foreground">or</span> attach a product photo before the checklist unlocks.
+                </p>
+              </div>
+
+              {/* Requirement status pills */}
+              <div className="flex gap-2 flex-wrap">
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium",
+                  ceramicNameFilled
+                    ? "bg-green-500/10 border-green-500/30 text-green-500"
+                    : "bg-destructive/10 border-destructive/30 text-destructive"
+                )}>
+                  {ceramicNameFilled ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  Product Name
+                </span>
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium",
+                  ceramicIdOrPhotoFilled
+                    ? "bg-green-500/10 border-green-500/30 text-green-500"
+                    : "bg-destructive/10 border-destructive/30 text-destructive"
+                )}>
+                  {ceramicIdOrPhotoFilled ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  Ceramic ID or Photo
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {/* Product Name — always required */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    Ceramic Product Name
+                    <span className="text-destructive font-bold">*</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">(required)</span>
+                  </Label>
+                  <Input
+                    placeholder="e.g., Gyeon Q2, IGL Kenzo, Ceramic Pro 9H, CarPro CQuartz..."
+                    value={ceramicProductName}
+                    onChange={(e) => { setCeramicProductName(e.target.value); setCeramicDetailsSaved(false); }}
+                    className={cn("bg-secondary/50", !ceramicNameFilled && ceramicDetailsSaved === false && "border-destructive/50 focus-visible:ring-destructive/30")}
+                    data-testid="input-ceramic-product-name"
+                  />
+                </div>
+
+                {/* Divider with label */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border/50" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase tracking-widest">
+                    <span className="bg-background px-3 text-muted-foreground font-semibold">Ceramic ID or Photo (one required)</span>
+                  </div>
+                </div>
+
+                {/* Ceramic ID */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    Ceramic ID / Batch Number
+                    <span className="text-[10px] text-muted-foreground font-normal">(or attach photo below)</span>
+                  </Label>
+                  <Input
+                    placeholder="Enter product ID or batch number..."
+                    value={ceramicProductId}
+                    onChange={(e) => { setCeramicProductId(e.target.value); setCeramicDetailsSaved(false); }}
+                    className="bg-secondary/50"
+                    data-testid="input-ceramic-product-id"
+                  />
+                </div>
+
+                <div className="text-center text-xs text-muted-foreground font-semibold uppercase tracking-widest py-1">— OR —</div>
+
+                {/* Product photo */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    Product Label / Packaging Photo
+                    <span className="text-[10px] text-muted-foreground font-normal">(or enter ID above)</span>
+                  </Label>
+                  <input
+                    type="file"
+                    ref={ceramicProductPhotoInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { handleCeramicProductPhotoSelect(e); setCeramicDetailsSaved(false); }}
+                    multiple
+                  />
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {ceramicProductPhotos.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
+                        <img src={img} alt={`Ceramic Product ${idx + 1}`} loading="lazy" className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => onOpenLightbox?.(ceramicProductPhotos.map(u => ({ url: u, type: "photo" as const })), idx)} />
+                        <button
+                          onClick={() => { removeCeramicProductPhoto(idx); setCeramicDetailsSaved(false); }}
+                          className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      onClick={() => ceramicProductPhotoInputRef.current?.click()}
+                      className={cn(
+                        "aspect-square flex flex-col items-center justify-center gap-2 border-dashed",
+                        !ceramicIdOrPhotoFilled && "border-amber-500/40 text-amber-500"
+                      )}
+                      data-testid="button-ceramic-product-photo"
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-xs">Add Photo</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save state */}
+              {ceramicDetailsSaved ? (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+                  <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm text-green-500 font-medium">Ceramic Details Saved</p>
+                  <p className="text-xs text-muted-foreground mt-1">Checklist is now unlocked — complete it to proceed.</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-xs text-muted-foreground"
+                    onClick={() => setCeramicDetailsSaved(false)}
+                  >
+                    Edit Details
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={saveCeramicDetails}
+                  disabled={!ceramicDetailsComplete}
+                  className={cn(
+                    "w-full",
+                    ceramicDetailsComplete
+                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                      : "opacity-60 cursor-not-allowed"
+                  )}
+                  data-testid="button-save-ceramic-details"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {ceramicDetailsComplete
+                    ? 'Save & Unlock Checklist'
+                    : !ceramicNameFilled
+                      ? 'Enter Product Name to continue'
+                      : 'Add Ceramic ID or Photo to continue'}
+                </Button>
+              )}
+            </TabsContent>
+          )}
+
+          <TabsContent value="checklist" className="flex-1 p-4 sm:p-6 space-y-3">
             {localChecklist.map((item, idx) => (
               <div key={idx}
                 className={cn(
@@ -1353,7 +1593,7 @@ function StageDetailView({
             ))}
           </TabsContent>
 
-          <TabsContent value="photos" className="flex-1 p-6 space-y-6">
+          <TabsContent value="photos" className="flex-1 p-4 sm:p-6 space-y-6">
             <input type="file" ref={stagePhotoInputRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} multiple />
             <input type="file" ref={stageCameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
 
@@ -1362,10 +1602,20 @@ function StageDetailView({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {(stage.photos || []).map((photo, i) => (
                   <div key={i} className="relative aspect-square rounded-lg bg-secondary border border-border overflow-hidden group">
-                    <img src={photo} alt={`Stage photo ${i + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={photo}
+                      alt={`Stage photo ${i + 1}`}
+                      loading="lazy"
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => onOpenLightbox?.((stage.photos || []).map((u: string) => ({ url: u, type: "photo" as const })), i)}
+                    />
+                    <div
+                      className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                      onClick={() => onOpenLightbox?.((stage.photos || []).map((u: string) => ({ url: u, type: "photo" as const })), i)}
+                    />
                     <button
                       onClick={() => removePhoto(i)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
                     >
                       <X className="w-4 h-4 text-white" />
                     </button>
@@ -1450,10 +1700,10 @@ function StageDetailView({
         </Tabs>
       </CardContent>
 
-      <div className="p-6 border-t border-border/50 bg-white/5 flex items-center justify-between gap-4">
+      <div className="p-4 sm:p-6 border-t border-border/50 bg-white/5 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
         <Button
           variant="outline"
-          className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20"
+          className="w-full sm:w-auto text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/20 min-h-[44px]"
           onClick={onReportIssue}
           data-testid="button-report-issue"
         >
@@ -1461,17 +1711,17 @@ function StageDetailView({
           Report Issue
         </Button>
         {isJobDelivered ? (
-          <div className="flex items-center gap-2 px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+          <div className="flex items-center justify-center gap-2 px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-lg">
             <CheckCircle2 className="w-5 h-5 text-green-500" />
             <span className="font-bold text-green-500 text-lg">Completed</span>
           </div>
         ) : isCurrentStage ? (
-          stage.id === 11 ? (
+          stage.id === totalStages ? (
             <Button
               onClick={onMarkAsDelivered}
               disabled={!isAllChecked}
               className={cn(
-                "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
+                "w-full sm:w-auto sm:min-w-[200px] min-h-[44px] shadow-lg transition-all",
                 isAllChecked ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
               )}
               data-testid="button-mark-delivered"
@@ -1482,10 +1732,10 @@ function StageDetailView({
           ) : (
             <Button
               onClick={() => onComplete(localChecklist)}
-              disabled={!isAllChecked || !ppfDetailsComplete}
+              disabled={!isAllChecked || !ppfDetailsComplete || !ceramicDetailsComplete}
               className={cn(
-                "w-full md:w-auto min-w-[200px] min-h-[44px] shadow-lg transition-all",
-                (isAllChecked && ppfDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
+                "w-full sm:w-auto sm:min-w-[200px] min-h-[44px] shadow-lg transition-all",
+                (isAllChecked && ppfDetailsComplete && ceramicDetailsComplete) ? "bg-green-600 hover:bg-green-700 text-white shadow-green-500/20" : "opacity-50 cursor-not-allowed"
               )}
               data-testid="button-complete-stage"
             >
@@ -1497,7 +1747,7 @@ function StageDetailView({
           <Button
             variant="secondary"
             onClick={onBackToCurrentStage}
-            className="w-full md:w-auto min-w-[200px] min-h-[44px]"
+            className="w-full sm:w-auto sm:min-w-[200px] min-h-[44px]"
             data-testid="button-back-to-current"
           >
             Back to Current Stage

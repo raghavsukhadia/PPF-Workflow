@@ -131,7 +131,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen transition-all min-w-0 overflow-x-hidden">
-        <div className="h-full p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 min-w-0">
+        <div className="h-full p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500 min-w-0">
           {children}
         </div>
       </main>

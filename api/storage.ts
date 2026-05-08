@@ -24,7 +24,8 @@ import {
 import { db } from "./db.js";
 import { eq, desc } from "drizzle-orm";
 
-export type JobSummary = Pick<Job, 'id' | 'jobNo' | 'customerName' | 'vehicleBrand' | 'vehicleModel' | 'vehicleRegNo' | 'status' | 'currentStage' | 'priority' | 'promisedDate' | 'assignedTo' | 'package' | 'createdAt' | 'activeIssue'>;
+export type JobSummary = Pick<Job, 'id' | 'jobNo' | 'customerName' | 'vehicleBrand' | 'vehicleModel' | 'vehicleRegNo' | 'status' | 'currentStage' | 'priority' | 'promisedDate' | 'assignedTo' | 'package' | 'createdAt' | 'activeIssue' | 'processType'>;
+export type DeliveredJobSummary = Pick<Job, 'id' | 'jobNo' | 'vehicleBrand' | 'vehicleModel' | 'vehicleYear' | 'vehicleColor' | 'vehicleRegNo' | 'package' | 'promisedDate' | 'processType' | 'createdAt'>;
 
 export interface IStorage {
     getUser(id: string): Promise<User | undefined>;
@@ -35,6 +36,7 @@ export interface IStorage {
 
     getAllJobs(): Promise<Job[]>;
     getJobsSummary(): Promise<JobSummary[]>;
+    getDeliveredJobsSummary(): Promise<DeliveredJobSummary[]>;
     getJob(id: string): Promise<Job | undefined>;
     createJob(job: InsertJob): Promise<Job>;
     updateJob(id: string, data: Partial<InsertJob>): Promise<Job | undefined>;
@@ -114,7 +116,26 @@ export class DatabaseStorage implements IStorage {
             package: jobs.package,
             createdAt: jobs.createdAt,
             activeIssue: jobs.activeIssue,
+            processType: jobs.processType,
         }).from(jobs).orderBy(desc(jobs.createdAt));
+    }
+
+    async getDeliveredJobsSummary(): Promise<DeliveredJobSummary[]> {
+        return await db.select({
+            id: jobs.id,
+            jobNo: jobs.jobNo,
+            vehicleBrand: jobs.vehicleBrand,
+            vehicleModel: jobs.vehicleModel,
+            vehicleYear: jobs.vehicleYear,
+            vehicleColor: jobs.vehicleColor,
+            vehicleRegNo: jobs.vehicleRegNo,
+            package: jobs.package,
+            promisedDate: jobs.promisedDate,
+            processType: jobs.processType,
+            createdAt: jobs.createdAt,
+        }).from(jobs)
+            .where(eq(jobs.status, 'delivered'))
+            .orderBy(desc(jobs.createdAt));
     }
 
     async getJob(id: string): Promise<Job | undefined> {

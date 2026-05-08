@@ -1,19 +1,23 @@
 import { Router, type Express, Request, Response, NextFunction } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
-import { insertJobSchema, insertServicePackageSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "../shared/schema";
+import { insertJobSchema, insertUserSchema, insertServicePackageSchema, insertPpfProductSchema, insertPpfRollSchema, insertJobPpfUsageSchema, insertJobIssueSchema } from "../shared/schema";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase Admin Client for token verification
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn("Supabase credentials not found in environment. Auth verification will fail.");
 }
 
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey) ? createClient(supabaseUrl, supabaseServiceKey, {
+  auth: { autoRefreshToken: false, persistSession: false }
+}) : null;
 
 const updatePpfRollSchema = z.object({
   status: z.enum(["active", "depleted", "disposed"]).optional(),
@@ -91,6 +95,15 @@ export async function registerRoutes(
       res.json(jobs);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch jobs summary" });
+    }
+  });
+
+  router.get("/jobs/delivered", verifyAuth, async (req, res) => {
+    try {
+      const jobs = await storage.getDeliveredJobsSummary();
+      res.json(jobs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch delivered jobs" });
     }
   });
 
@@ -176,10 +189,36 @@ export async function registerRoutes(
     }
   });
 
-  // Note: Creating users typically happens via Supabase Auth SignUp. 
   router.post("/users", verifyAuth, requireRole("Admin"), async (req, res) => {
     try {
-      res.status(501).json({ message: "User creation should be done via Supabase Auth" });
+      if (!supabaseAdmin) {
+        return res.status(500).json({ message: "Admin auth service not configured" });
+      }
+      const { email, password, name, role } = req.body;
+      if (!email || !password || !name || !role) {
+        return res.status(400).json({ message: "email, password, name and role are required" });
+      }
+
+      // Create the Supabase Auth account so the user can actually log in
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: { name, role },
+        email_confirm: true,
+      });
+      if (authError) {
+        return res.status(400).json({ message: authError.message });
+      }
+
+      // Mirror into the users table for role/display lookups
+      const user = await storage.createUser({
+        username: email,
+        password: "",
+        name,
+        role,
+      });
+      const { password: _pw, ...userWithoutPassword } = user;
+      return res.status(201).json(userWithoutPassword);
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to create user" });
     }

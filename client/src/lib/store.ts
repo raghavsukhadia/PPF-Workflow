@@ -44,6 +44,12 @@ export type PpfDetails = {
   rollImages?: string[];
 };
 
+export type CeramicDetails = {
+  productName?: string;
+  productId?: string;
+  productPhotos?: string[];
+};
+
 export type JobStage = {
   id: number;
   name: string;
@@ -56,6 +62,7 @@ export type JobStage = {
   comments?: StageComment[]; // New comment system
   photos: string[]; // URLs
   ppfDetails?: PpfDetails; // PPF details for stage 7
+  ceramicDetails?: CeramicDetails; // Ceramic details for ceramic stage 5
 };
 
 export type Job = {
@@ -87,6 +94,19 @@ export const STAGE_TEMPLATES = [
   { id: 9, name: 'Cleaning & Finishing', checklist: ['Final wipe down', 'Glass cleaned', 'Interior quick clean'] },
   { id: 10, name: 'Final Inspection', checklist: ['Panel-by-panel QC', 'Edges + corners check', 'Curing instructions ready'] },
   { id: 11, name: 'Delivered', checklist: ['Customer walkthrough', 'Delivery photos', 'Payment closed', 'Signature captured'] },
+];
+
+export const CERAMIC_STAGE_TEMPLATES = [
+  { id: 1, name: 'Vehicle Inward', checklist: ['Customer details verified', 'Walkaround photos (6 angles)', 'Accessories noted', 'Job package confirmed'] },
+  { id: 2, name: 'Inspection', checklist: ['Paint condition marked', 'Existing scratches/dents marked', 'Panel-wise note', 'Customer approval'] },
+  { id: 3, name: 'Washing (1)', checklist: ['Foam wash done', 'Iron remover used', 'Drying done'] },
+  { id: 4, name: 'Surface Preparation', checklist: ['Clay bar treatment', 'IPA wipe', 'Panel temperature OK'] },
+  { id: 5, name: 'Selecting Ceramic', checklist: ['Ceramic product identified', 'Product ID verified', 'Product availability confirmed', 'Customer approval on product'] },
+  { id: 6, name: 'Dusting + IP', checklist: ['All panels dusted thoroughly', 'IPA (Isopropyl) wipe done on all panels', 'No contamination visible', 'Panel surface temp checked'] },
+  { id: 7, name: 'Applying Ceramic', checklist: ['Ceramic applied to all panels', 'Flash time observed per product specs', 'Leveling & buffing completed', 'No high-spots visible'] },
+  { id: 8, name: 'Cleaning & Finishing', checklist: ['Final wipe down', 'Glass cleaned', 'Interior quick clean'] },
+  { id: 9, name: 'Final Inspection', checklist: ['Panel-by-panel QC', 'High-spot check done', 'Coating uniformity verified', 'Curing instructions ready'] },
+  { id: 10, name: 'Delivered', checklist: ['Customer walkthrough', 'Delivery photos', 'Payment closed', 'Signature captured'] },
 ];
 
 const DEFAULT_PACKAGES = [

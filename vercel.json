@@ -16,6 +16,10 @@
             "destination": "/api/jobs-summary"
         },
         {
+            "source": "/api/jobs/delivered",
+            "destination": "/api/jobs-delivered"
+        },
+        {
             "source": "/api/jobs/([^/]+)/issues",
             "destination": "/api/jobs-id-issues?id=$1"
         },
@@ -36,12 +40,28 @@
             "destination": "/api/jobs$1"
         },
         {
+            "source": "/api/ppf-products/([^/]+)",
+            "destination": "/api/ppf-products-id?id=$1"
+        },
+        {
             "source": "/api/ppf-products",
             "destination": "/api/ppf-products"
         },
         {
+            "source": "/api/ppf-rolls/([^/]+)",
+            "destination": "/api/ppf-rolls-id?id=$1"
+        },
+        {
             "source": "/api/ppf-rolls",
             "destination": "/api/ppf-rolls"
+        },
+        {
+            "source": "/api/issues/([^/]+)",
+            "destination": "/api/issues-id?id=$1"
+        },
+        {
+            "source": "/api/ppf-usage/([^/]+)",
+            "destination": "/api/ppf-usage-id?id=$1"
         },
         {
             "source": "/api/diagnostic",

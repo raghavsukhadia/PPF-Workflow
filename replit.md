@@ -72,3 +72,18 @@ Preferred communication style: Simple, everyday language.
 ### Environment Variables Required
 - `DATABASE_URL`: PostgreSQL connection string
 - `SESSION_SECRET`: Secret key for session encryption (optional, has default for development)
+
+## Deploying to Vercel
+
+To see **existing jobs/vehicles** and perform all operations in production, production must use the **same database** as your local environment.
+
+1. In [Vercel Dashboard](https://vercel.com) → your project → **Settings** → **Environment Variables**, add the same values you use locally (from `.env`):
+   - **`DATABASE_URL`** – Postgres connection string (e.g. Supabase pooler URL). Required for the API to read/write jobs.
+   - **`SUPABASE_URL`** – Supabase project URL (used by API auth).
+   - **`SUPABASE_ANON_KEY`** – Supabase anon key (used by API auth).
+   - **`VITE_SUPABASE_URL`** – Same as `SUPABASE_URL` (exposed to client for Supabase auth).
+   - **`VITE_SUPABASE_ANON_KEY`** – Same as `SUPABASE_ANON_KEY` (exposed to client).
+
+2. Redeploy the project (e.g. trigger a new deployment or push a commit) so the new variables are applied.
+
+If these are missing or point to a different/empty database, the app will show "Job not found" for existing job URLs and lists will be empty because the API is querying a different DB than the one that has your data.

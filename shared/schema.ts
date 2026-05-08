@@ -38,6 +38,7 @@ export const jobs = pgTable("jobs", {
   priority: text("priority").notNull().default('normal'),
   activeIssue: jsonb("active_issue"),
   assignedTo: varchar("assigned_to"),
+  processType: text("process_type").notNull().default('ppf'),
 }, (table) => [
   index("jobs_status_idx").on(table.status),
   index("jobs_current_stage_idx").on(table.currentStage),

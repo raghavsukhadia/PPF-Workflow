@@ -23,10 +23,11 @@ export default function Dashboard() {
   const { data: jobs = [], isLoading } = useJobsSummary();
 
   const { activeJobs, deliveredJobs, pendingDeliveryCount, activeCount, issuesCount } = useMemo(() => {
+    const getLastStage = (j: typeof jobs[number]) => j.processType === 'ceramic' ? 10 : 11;
     const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'hold');
     const deliveredJobs = jobs.filter(j => j.status === 'delivered');
-    const pendingDeliveryCount = activeJobs.filter(j => j.currentStage === 11).length;
-    const activeCount = activeJobs.filter(j => j.currentStage < 11).length;
+    const pendingDeliveryCount = activeJobs.filter(j => j.currentStage === getLastStage(j)).length;
+    const activeCount = activeJobs.filter(j => j.currentStage < getLastStage(j)).length;
     const issuesCount = jobs.filter(j => j.activeIssue).length;
     return { activeJobs, deliveredJobs, pendingDeliveryCount, activeCount, issuesCount };
   }, [jobs]);
@@ -106,13 +107,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
           <Card key={i} className="bg-card border-border/50 shadow-sm hover:border-primary/20 transition-colors">
-            <CardContent className="p-6 flex items-center justify-between">
+            <CardContent className="p-4 sm:p-6 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-bold font-display mt-1" data-testid={`stat-${stat.label.toLowerCase().replace(/ /g, '-')}`}>{stat.value}</p>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">{stat.label}</p>
+                <p className="text-xl sm:text-2xl font-bold font-display mt-1" data-testid={`stat-${stat.label.toLowerCase().replace(/ /g, '-')}`}>{stat.value}</p>
               </div>
-              <div className={`p-3 rounded-xl ${stat.bg}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              <div className={`p-2.5 sm:p-3 rounded-xl ${stat.bg} shrink-0`}>
+                <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} />
               </div>
             </CardContent>
           </Card>
@@ -154,14 +155,14 @@ export default function Dashboard() {
                           <div className="flex flex-col items-center">
                             <div className={cn(
                               "w-2 h-2 rounded-full mt-2",
-                              job.currentStage === 11 ? "bg-green-500" : "bg-primary"
+                              job.currentStage === (job.processType === 'ceramic' ? 10 : 11) ? "bg-green-500" : "bg-primary"
                             )}></div>
                             {!isLast && <div className="w-0.5 h-full bg-border mt-1"></div>}
                           </div>
                           <div>
                             <p className="text-sm font-medium">{job.vehicleBrand} {job.vehicleModel}</p>
                             <p className="text-xs text-muted-foreground">
-                              Stage {job.currentStage}/11
+                              Stage {job.currentStage}/{job.processType === 'ceramic' ? 10 : 11}
                             </p>
                           </div>
                         </div>
@@ -182,14 +183,24 @@ export default function Dashboard() {
   );
 }
 
-const STAGE_NAMES = [
-  '', 'Vehicle Inward', 'Inspection', 'Washing', 'Surface Prep', 'Parts Opening',
-  'Washing (2)', 'PPF Application', 'Parts Repacking', 'Cleaning', 'Final Inspection', 'Delivered'
-];
+const PPF_STAGE_NAMES: Record<number, string> = {
+  1: 'Vehicle Inward', 2: 'Inspection', 3: 'Washing (1)', 4: 'Surface Prep',
+  5: 'Parts Opening', 6: 'Washing (2)', 7: 'PPF Application', 8: 'Parts Repacking',
+  9: 'Cleaning', 10: 'Final Inspection', 11: 'Delivered'
+};
+
+const CERAMIC_STAGE_NAMES: Record<number, string> = {
+  1: 'Vehicle Inward', 2: 'Inspection', 3: 'Washing (1)', 4: 'Surface Prep',
+  5: 'Selecting Ceramic', 6: 'Dusting + IP', 7: 'Applying Ceramic',
+  8: 'Cleaning', 9: 'Final Inspection', 10: 'Delivered'
+};
 
 function JobListItem({ job }: { job: ApiJobSummary }) {
-  const currentStageName = STAGE_NAMES[job.currentStage] || 'Unknown';
-  const progress = (job.currentStage / 11) * 100;
+  const isCeramic = job.processType === 'ceramic';
+  const stageNames = isCeramic ? CERAMIC_STAGE_NAMES : PPF_STAGE_NAMES;
+  const totalStages = isCeramic ? 10 : 11;
+  const currentStageName = stageNames[job.currentStage] || 'Unknown';
+  const progress = (job.currentStage / totalStages) * 100;
 
   return (
     <Link href={`/jobs/${job.id}`}>
@@ -215,9 +226,17 @@ function JobListItem({ job }: { job: ApiJobSummary }) {
              </div>
           </div>
           <div className="text-right">
-             <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 mb-1">
-                {currentStageName}
-             </Badge>
+             <div className="flex items-center gap-1.5 justify-end mb-1">
+               <Badge variant="outline" className={cn(
+                 "text-[10px]",
+                 isCeramic ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+               )}>
+                 {isCeramic ? 'Ceramic' : 'PPF'}
+               </Badge>
+               <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                 {currentStageName}
+               </Badge>
+             </div>
              <div className="flex items-center gap-1 justify-end text-xs text-muted-foreground">
                 <Calendar className="w-3 h-3" /> Due {format(new Date(job.promisedDate), 'MMM d, h:mm a')}
              </div>
@@ -226,7 +245,7 @@ function JobListItem({ job }: { job: ApiJobSummary }) {
 
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-medium text-muted-foreground">
-            <span>Progress (Stage {job.currentStage}/11)</span>
+            <span>Progress (Stage {job.currentStage}/{totalStages})</span>
             <span>{Math.round(progress)}%</span>
           </div>
           <Progress 
